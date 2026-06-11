@@ -10,7 +10,7 @@ class WadLoader {
             return $this->invalid($path);
         }
 
-        $bytes = file_get_contents($path);
+        $bytes = (string)file_get_contents($path);
         BinaryReader $reader = new BinaryReader($bytes);
 
         if ($reader->length() < 12) {

@@ -63,7 +63,7 @@ class WallRenderer {
         int $subSectorCount = count($subSectorOrder);
         int $orderIndex = 0;
         while ($orderIndex < $subSectorCount) {
-            int $subSectorIndex = $subSectorOrder[$orderIndex];
+            int $subSectorIndex = (int)$subSectorOrder[$orderIndex];
             if ($subSectorIndex >= 0 && $subSectorIndex < $map->subSectorCount) {
                 int $firstSeg = $map->subSectors[$subSectorIndex]->first_seg_index;
                 int $segCount = $map->subSectors[$subSectorIndex]->seg_count;
@@ -295,15 +295,15 @@ class WallRenderer {
                 continue;
             }
             int $base = $clipColumn * 3;
-            if ($depth >= $clipData[$base]) {
+            if ($depth >= (int)$clipData[$base]) {
                 $x += 1;
                 continue;
             }
 
             int $idxCeil = $base + 1;
             int $idxFloor = $base + 2;
-            int $colCeil = $clipData[$idxCeil];
-            int $colFloor = $clipData[$idxFloor];
+            int $colCeil = (int)$clipData[$idxCeil];
+            int $colFloor = (int)$clipData[$idxFloor];
             if ($colCeil >= $colFloor) {
                 $x += 1;
                 continue;

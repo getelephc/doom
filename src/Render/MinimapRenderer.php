@@ -197,7 +197,7 @@ class MinimapRenderer {
 
         int $i = 0;
         while ($i < $count) {
-            int $subSectorIndex = $subSectorOrder[$i];
+            int $subSectorIndex = (int)$subSectorOrder[$i];
             if ($subSectorIndex >= 0 && $subSectorIndex < $map->subSectorCount) {
                 int $intensity = 220 - intdiv($i * 140, $count);
                 if ($intensity < 80) {

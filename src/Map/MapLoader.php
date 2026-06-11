@@ -21,7 +21,7 @@ class MapLoader {
             return $map;
         }
 
-        string $bytes = file_get_contents($wad->path);
+        string $bytes = (string)file_get_contents($wad->path);
         BinaryReader $reader = new BinaryReader($bytes);
 
         int $markerIndex = $this->findEntryIndex($reader, $wad, $mapName);
