@@ -611,11 +611,9 @@ final class Specials {
                     if ($lowered <= $floor) {
                         $sectors[$sector]->ceiling_height = $floor;
                         if ($movers[$i]->type === $this->doorCloseThenOpen) {
+                            // shut for the wait, then back up to the ceiling it started from
                             $movers[$i]->direction = 0;
                             $movers[$i]->countdown = $movers[$i]->wait;
-                            int $reopenAt = $this->lowestCeilingAround($sector) - 4;
-                            $movers[$i]->top = $reopenAt;
-                            $movers[$i]->type = $this->doorOpen;
                         } else {
                             $this->finishMover($i);
                         }
