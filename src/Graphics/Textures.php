@@ -6,7 +6,8 @@ use Showcases\Doom\Wad\Wad;
 
 // Wall textures from TEXTURE1/TEXTURE2, each composed once from its PNAMES patches
 // into one column-major byte buffer: texel (u, v) of texture t is at
-// $offset[t] + u * $height[t] + v. Holes stay palette index 0.
+// $offset[t] + u * $height[t] + v. Holes stay palette index 0, and $opaque marks
+// (with 1) the texels some patch covered, for see-through middle textures.
 final class Textures {
     public int $count;
     public buffer<int> $width;
@@ -15,6 +16,7 @@ final class Textures {
     public buffer<int> $key;
     public buffer<int> $translation;
     public buffer<u8> $texels;
+    public buffer<u8> $opaque;
     public Animations $animations;
     public int $sky;
 
@@ -26,6 +28,7 @@ final class Textures {
         $this->key = buffer_new<int>(1);
         $this->translation = buffer_new<int>(1);
         $this->texels = buffer_new<u8>(1);
+        $this->opaque = buffer_new<u8>(1);
         $this->animations = new Animations();
         $this->sky = -1;
     }
@@ -98,6 +101,7 @@ final class Textures {
         }
 
         $this->texels = buffer_new<u8>($total + 1);
+        $this->opaque = buffer_new<u8>($total + 1);
         for ($t = 0; $t < $count; $t++) {
             int $defAt = $definition[$t];
             int $patchCountAt = $defAt + 20;
@@ -141,6 +145,7 @@ final class Textures {
     public function composite(Wad $wad, int $t, int $lump, int $originX, int $originY): void {
         buffer<u8> $data = $wad->data;
         buffer<u8> $texels = $this->texels;
+        buffer<u8> $opaque = $this->opaque;
         int $patchAt = $wad->lumpOffset[$lump];
         int $patchWidth = $wad->i16($patchAt);
         int $width = $this->width[$t];
@@ -172,6 +177,7 @@ final class Textures {
                         int $source = $pixelsAt + $k;
                         int $target = $columnBase + $ty;
                         $texels[$target] = $data[$source];
+                        $opaque[$target] = 1;
                     }
                 }
                 int $postBytes = $length + 4;

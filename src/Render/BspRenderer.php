@@ -21,6 +21,11 @@ use Showcases\Doom\Wad\Wad;
 // two-sided line, which narrow the opening for whatever lies behind. The BSP walk
 // stops once every column is closed, so each pixel is written once.
 //
+// A two-sided line's middle texture (a grate, a fence) is see-through, so it cannot
+// close anything: the seg saves, per column, the texture column and depth inside the
+// opening it leaves, and drawMaskedRange() paints it later, back to front with the
+// sprites, skipping the texels no patch covered.
+//
 // Fixed point: view-space coordinates are 16.16 world units; depth is the distance
 // along the view direction. A wall texel row is texturemid + (y - centerY) * depth / focal;
 // a flat pixel's distance is planeHeight * focal / (rows from the horizon), and its
@@ -60,6 +65,14 @@ final class BspRenderer {
     public buffer<int> $openingTop;
     public buffer<int> $openingBottom;
     public int $openingUsed;
+    // see-through middle textures: per drawn seg the texture (or -1), its 16.16 anchor
+    // and its light row; per column of the seg's opening, the texture column still to
+    // draw (or -1) and the depth there
+    public buffer<int> $drawSegMasked;
+    public buffer<int> $drawSegMaskedMid;
+    public buffer<int> $drawSegMaskedLight;
+    public buffer<int> $maskedColumn;
+    public buffer<int> $maskedDepth;
 
     public int $viewX;
     public int $viewY;
@@ -79,6 +92,7 @@ final class BspRenderer {
 
     public buffer<u8> $wadData;
     public buffer<u8> $texels;
+    public buffer<u8> $opaque;
     public buffer<int> $textureWidth;
     public buffer<int> $textureHeight;
     public buffer<int> $textureOffset;
@@ -125,6 +139,11 @@ final class BspRenderer {
         $this->openingTop = buffer_new<int>(131072);
         $this->openingBottom = buffer_new<int>(131072);
         $this->openingUsed = 0;
+        $this->drawSegMasked = buffer_new<int>(1024);
+        $this->drawSegMaskedMid = buffer_new<int>(1024);
+        $this->drawSegMaskedLight = buffer_new<int>(1024);
+        $this->maskedColumn = buffer_new<int>(131072);
+        $this->maskedDepth = buffer_new<int>(131072);
         for ($x = 0; $x < $screen->width; $x++) {
             // pixel centers: offset (x + 0.5 - centerX) / focal
             float $offset = ($x + 0.5 - $this->centerX) / $this->focal;
@@ -144,6 +163,7 @@ final class BspRenderer {
         $this->segCount = 0;
         $this->wadData = $wad->data;
         $this->texels = $textures->texels;
+        $this->opaque = $textures->opaque;
         $this->textureWidth = $textures->width;
         $this->textureHeight = $textures->height;
         $this->textureOffset = $textures->offset;
@@ -360,6 +380,30 @@ final class BspRenderer {
             }
             $middleMid = $this->textureMid($middleTop, $rowOffset);
         }
+        // a two-sided middle texture hangs once, not tiled, from the lower ceiling or,
+        // lower-unpegged, stands on the higher floor
+        int $maskedTexture = -1;
+        int $maskedMid = 0;
+        int $maskedWidth = 1;
+        if ($twoSided) {
+            $maskedTexture = $this->drawnTexture($sides[$sidedef]->middle);
+        }
+        if ($maskedTexture >= 0) {
+            $maskedWidth = $this->textureWidth[$maskedTexture];
+            int $maskedTop = $frontCeiling;
+            if ($backCeiling < $maskedTop) {
+                $maskedTop = $backCeiling;
+            }
+            if ($lowerUnpegged) {
+                int $maskedFloor = $frontFloor;
+                if ($backFloor > $maskedFloor) {
+                    $maskedFloor = $backFloor;
+                }
+                int $standing = $maskedFloor + $this->textureHeight[$maskedTexture];
+                $maskedTop = $standing;
+            }
+            $maskedMid = $this->textureMid($maskedTop, $rowOffset);
+        }
         if ($hasUpper) {
             $upperTexture = $this->drawnTexture($sides[$sidedef]->upper);
             int $upperTop = $worldTop;
@@ -416,6 +460,21 @@ final class BspRenderer {
         buffer<int> $tops = $this->clipTop;
         buffer<int> $bottoms = $this->clipBottom;
         buffer<int> $wallLight = $this->wallLight;
+        // the masked columns sit where recordDrawSeg() will put this seg's opening
+        bool $masked = $maskedTexture >= 0;
+        int $maskedStart = $this->openingUsed;
+        int $span = $xEnd - $xStart;
+        int $maskedEnd = $maskedStart + $span;
+        if ($maskedEnd > 131072) {
+            $masked = false;
+        }
+        buffer<int> $maskedColumn = $this->maskedColumn;
+        buffer<int> $maskedDepth = $this->maskedDepth;
+        if ($masked) {
+            for ($m = $maskedStart; $m < $maskedEnd; $m++) {
+                $maskedColumn[$m] = -1;
+            }
+        }
         for ($x = $xStart; $x < $xEnd; $x++) {
             int $clipTop = $tops[$x];
             int $clipBottom = $bottoms[$x];
@@ -525,15 +584,27 @@ final class BspRenderer {
             } else {
                 $tops[$x] = $openTop;
                 $bottoms[$x] = $openBottom;
+                if ($masked) {
+                    int $fromStart = $x - $xStart;
+                    int $maskedAt = $maskedStart + $fromStart;
+                    int $uWrapped = $u % $maskedWidth;
+                    int $uShifted = $uWrapped + $maskedWidth;
+                    $maskedColumn[$maskedAt] = $uShifted % $maskedWidth;
+                    $maskedDepth[$maskedAt] = $depth;
+                }
             }
         }
 
-        if (!$twoSided || $hasUpper || $hasLower) {
-            $this->recordDrawSeg($segIndex, $xStart, $xEnd, $clippedDepth1, $clippedDepth2, !$twoSided);
+        if (!$twoSided || $hasUpper || $hasLower || $masked) {
+            int $maskedSlot = -1;
+            if ($masked) {
+                $maskedSlot = $maskedTexture;
+            }
+            $this->recordDrawSeg($segIndex, $xStart, $xEnd, $clippedDepth1, $clippedDepth2, !$twoSided, $maskedSlot, $maskedMid, $wallRow);
         }
     }
 
-    public function recordDrawSeg(int $segIndex, int $xStart, int $xEnd, int $depth1, int $depth2, bool $solid): void {
+    public function recordDrawSeg(int $segIndex, int $xStart, int $xEnd, int $depth1, int $depth2, bool $solid, int $maskedTexture, int $maskedMid, int $maskedLight): void {
         int $slot = $this->drawSegCount;
         if ($slot >= 1024) {
             return;
@@ -557,6 +628,9 @@ final class BspRenderer {
         $this->drawSegFar[$slot] = $far;
         $this->drawSegIndex[$slot] = $segIndex;
         $this->drawSegOpening[$slot] = $openingStart;
+        $this->drawSegMasked[$slot] = $maskedTexture;
+        $this->drawSegMaskedMid[$slot] = $maskedMid;
+        $this->drawSegMaskedLight[$slot] = $maskedLight;
         $this->drawSegSolid[$slot] = 0;
         if ($solid) {
             $this->drawSegSolid[$slot] = 1;
@@ -692,6 +766,96 @@ final class BspRenderer {
             int $screenRow = $y * $w;
             int $screenAt = $screenRow + $x;
             $screen[$screenAt] = $colormaps[$colorAt];
+        }
+    }
+
+    // The still undrawn columns of drawn seg $ds's middle texture between screen
+    // columns $from and $to, each clipped to the opening the seg left there. A drawn
+    // column is marked done, so the final pass does not paint it over a sprite.
+    public function drawMaskedRange(int $ds, int $from, int $to): void {
+        int $texture = $this->drawSegMasked[$ds];
+        if ($texture < 0) {
+            return;
+        }
+        buffer<int> $maskedColumn = $this->maskedColumn;
+        buffer<int> $maskedDepth = $this->maskedDepth;
+        buffer<int> $openingTop = $this->openingTop;
+        buffer<int> $openingBottom = $this->openingBottom;
+        buffer<int> $wallLight = $this->wallLight;
+        buffer<u8> $screen = $this->screen;
+        buffer<u8> $texels = $this->texels;
+        buffer<u8> $opaque = $this->opaque;
+        buffer<u8> $colormaps = $this->colormaps;
+        int $x1 = $this->drawSegX1[$ds];
+        int $opening = $this->drawSegOpening[$ds];
+        int $mid = $this->drawSegMaskedMid[$ds];
+        int $lightRow = $this->drawSegMaskedLight[$ds];
+        int $height = $this->textureHeight[$texture];
+        int $textureBase = $this->textureOffset[$texture];
+        int $midUnits = $mid >> 16;
+        int $bottomUnits = $midUnits - $height;
+        int $centerY = $this->centerY;
+        int $w = $this->width;
+        int $focal = $this->focal;
+        int $focalScale = $this->focalScale;
+        int $end = $to + 1;
+        for ($x = $from; $x < $end; $x++) {
+            int $column = $x - $x1;
+            int $at = $opening + $column;
+            int $textureColumn = $maskedColumn[$at];
+            if ($textureColumn < 0) {
+                continue;
+            }
+            $maskedColumn[$at] = -1;
+            int $depth = $maskedDepth[$at];
+            int $scale = intdiv($focalScale, $depth);
+            int $iscale = intdiv($depth, $focal);
+            int $scaleIndex = $scale >> 12;
+            if ($scaleIndex > 47) {
+                $scaleIndex = 47;
+            }
+            int $lightSlot = $lightRow + $scaleIndex;
+            int $colormap = $wallLight[$lightSlot];
+            // the texture's rows 0 .. height - 1 fall between these screen rows
+            int $top = $this->rowOf($midUnits, $scale);
+            int $below = $this->rowOf($bottomUnits, $scale);
+            if ($top < $openingTop[$at]) {
+                $top = $openingTop[$at];
+            }
+            int $stop = $openingBottom[$at] + 1;
+            if ($below < $stop) {
+                $stop = $below;
+            }
+            int $columnStart = $textureColumn * $height;
+            int $columnBase = $textureBase + $columnStart;
+            for ($y = $top; $y < $stop; $y++) {
+                int $fromCenter = $y - $centerY;
+                int $travel = $fromCenter * $iscale;
+                int $v = $mid + $travel;
+                int $row = $v >> 16;
+                if ($row < 0 || $row >= $height) {
+                    continue;
+                }
+                int $texelAt = $columnBase + $row;
+                if ($opaque[$texelAt] === 0) {
+                    continue;
+                }
+                int $colorAt = $colormap + $texels[$texelAt];
+                int $screenRow = $y * $w;
+                int $screenAt = $screenRow + $x;
+                $screen[$screenAt] = $colormaps[$colorAt];
+            }
+        }
+    }
+
+    // Whatever middle-texture columns no sprite needed drawn first, far to near.
+    public function drawMaskedSegs(): void {
+        int $lastIndex = $this->drawSegCount - 1;
+        for ($k = 0; $k < $this->drawSegCount; $k++) {
+            int $ds = $lastIndex - $k;
+            if ($this->drawSegMasked[$ds] >= 0) {
+                $this->drawMaskedRange($ds, $this->drawSegX1[$ds], $this->drawSegX2[$ds]);
+            }
         }
     }
 

@@ -11,7 +11,9 @@ use Showcases\Doom\Wad\Wad;
 // Map objects as scaled WAD pictures, drawn far to near after the walls. Each
 // sprite column is clipped by the farthest recorded seg that is still in front of
 // the sprite: its saved opening already includes everything nearer, so the sprite
-// shows exactly where the walls left it visible.
+// shows exactly where the walls left it visible. A see-through middle texture
+// behind the sprite is painted first, over the sprite's columns, so the sprite
+// covers it; the ones in front are painted after all sprites.
 final class SpriteRenderer {
     public BspRenderer $world;
     public Sprites $sprites;
@@ -272,10 +274,16 @@ final class SpriteRenderer {
             if ($dsX1 > $x2 || $dsX2 < $x1) {
                 continue;
             }
-            if ($world->drawSegNear[$ds] >= $depth) {
-                continue;
+            int $from = $dsX1;
+            if ($from < $x1) {
+                $from = $x1;
             }
-            if ($world->drawSegFar[$ds] > $depth) {
+            int $to = $dsX2;
+            if ($to > $x2) {
+                $to = $x2;
+            }
+            bool $behind = $world->drawSegNear[$ds] >= $depth;
+            if (!$behind && $world->drawSegFar[$ds] > $depth) {
                 // depth ranges overlap: the seg hides the sprite only if the sprite is behind its line
                 int $segIndex = $world->drawSegIndex[$ds];
                 int $edgeX = $segs[$segIndex]->x2 - $segs[$segIndex]->x1;
@@ -284,17 +292,11 @@ final class SpriteRenderer {
                 int $toThingY = $thingY - $segs[$segIndex]->y1;
                 int $crossA = $edgeX * $toThingY;
                 int $crossB = $edgeY * $toThingX;
-                if ($crossA < $crossB) {
-                    continue;
-                }
+                $behind = $crossA < $crossB;
             }
-            int $from = $dsX1;
-            if ($from < $x1) {
-                $from = $x1;
-            }
-            int $to = $dsX2;
-            if ($to > $x2) {
-                $to = $x2;
+            if ($behind) {
+                $world->drawMaskedRange($ds, $from, $to);
+                continue;
             }
             int $toEnd = $to + 1;
             bool $solid = $world->drawSegSolid[$ds] !== 0;

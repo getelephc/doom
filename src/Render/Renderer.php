@@ -14,7 +14,8 @@ use Showcases\Doom\Support\Trig;
 use Showcases\Doom\Wad\Wad;
 
 // One frame: animate pictures, then either the 3D view (BSP walk front to back, map
-// objects over it) or the automap, then the status bar and the text overlay.
+// objects and see-through middle textures over it, far to near) or the automap,
+// then the status bar and the text overlay.
 final class Renderer {
     public Screen $screen;
     public Wad $wad;
@@ -77,6 +78,7 @@ final class Renderer {
         }
         $this->world->finishFrame();
         $this->spriteRenderer->render($things, $tic);
+        $this->world->drawMaskedSegs();
         $this->hud->drawStatusBar($player);
         $this->hud->drawOverlay($fps);
     }
