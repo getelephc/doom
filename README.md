@@ -6,6 +6,8 @@ No interpreter. No VM. No runtime dependencies beyond SDL2.
 
 The engine is written from the public descriptions of the WAD format and of how DOOM draws and moves (the Unofficial DOOM Specs and the DoomWiki), not translated from DOOM's source code.
 
+> This showcase is developed in [illegalstudio/elephc](https://github.com/illegalstudio/elephc/tree/main/showcases/doom). [getelephc/doom](https://github.com/getelephc/doom) is a read-only mirror published from there, so send changes to elephc.
+
 ## What it does
 
 - Reads the whole WAD into one byte buffer: lump directory, PLAYPAL palettes, COLORMAP light tables, PNAMES and TEXTURE1/TEXTURE2 wall textures composed from their patches, flats, sprites and status bar pictures
@@ -36,25 +38,29 @@ The engine is written from the public descriptions of the WAD format and of how 
 
 ## Build
 
-Requires SDL2 and a local copy of `DOOM1.WAD` (shareware).
+Requires [elephc](https://github.com/illegalstudio/elephc#install), SDL2 and a local copy of `DOOM1.WAD` (shareware). From this directory:
 
 ```bash
 # compile
-cargo run -- -l SDL2 -L /opt/homebrew/lib --heap-size=134217728 showcases/doom/main.php
+elephc -l SDL2 -L /opt/homebrew/lib --heap-size=134217728 main.php
 
 # run
-./showcases/doom/main
+./main
 ```
+
+In the elephc repository, build from its root with `cargo run -- -l SDL2 -L /opt/homebrew/lib --heap-size=134217728 showcases/doom/main.php` and run `./showcases/doom/main`.
 
 Download the shareware WAD: search for "DOOM1.WAD shareware" or extract it from the [original shareware release](https://doomwiki.org/wiki/DOOM1.WAD). Place it in this directory.
 
 ## Tests
 
 ```bash
-cargo run -- test showcases/doom/tests
+elephc test tests
 ```
 
-The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, a few objects, light tables that keep every color) and checks map changes, timed doors, objects on moving floors and ceilings, pickup reach and rendered frames read back from the 8-bit screen. CI runs it on every pull request.
+In the elephc repository, run `cargo run -- test showcases/doom/tests` from its root.
+
+The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, a few objects, light tables that keep every color) and checks map changes, timed doors, objects on moving floors and ceilings, pickup reach and rendered frames read back from the 8-bit screen. elephc's CI runs it on every pull request, and the mirror's CI runs it against the elephc nightly on every push.
 
 ## Controls
 
