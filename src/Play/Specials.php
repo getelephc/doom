@@ -5,6 +5,7 @@ namespace Showcases\Doom\Play;
 use Showcases\Doom\Data\Button;
 use Showcases\Doom\Data\LightEffect;
 use Showcases\Doom\Data\Linedef;
+use Showcases\Doom\Data\Mobj;
 use Showcases\Doom\Data\Mover;
 use Showcases\Doom\Data\Sector;
 use Showcases\Doom\Data\Sidedef;
@@ -31,6 +32,7 @@ final class Specials {
 
     public MapData $map;
     public Collision $collision;
+    public Things $things;
     public Trig $trig;
     public buffer<Mover> $movers;
     public int $moverCount;
@@ -54,9 +56,10 @@ final class Specials {
     public int $teleportY;
     public int $teleportAngle;
 
-    public function __construct(MapData $map, Collision $collision, Textures $textures, Wad $wad, Trig $trig) {
+    public function __construct(MapData $map, Collision $collision, Things $things, Textures $textures, Wad $wad, Trig $trig) {
         $this->map = $map;
         $this->collision = $collision;
+        $this->things = $things;
         $this->trig = $trig;
         $this->movers = buffer_new<Mover>(256);
         $this->moverCount = 0;
@@ -621,6 +624,7 @@ final class Specials {
                         $sectors[$sector]->ceiling_height = $lowered;
                     }
                 }
+                $this->settleThings($sector);
                 continue;
             }
 
@@ -644,6 +648,7 @@ final class Specials {
                         $sectors[$sector]->floor_height = $raised;
                     }
                 }
+                $this->settleThings($sector);
                 continue;
             }
 
@@ -655,14 +660,36 @@ final class Specials {
             bool $arrived = ($direction > 0 && $moved >= $target) || ($direction < 0 && $moved <= $target);
             if (!$arrived) {
                 $sectors[$sector]->floor_height = $moved;
+                $this->settleThings($sector);
                 continue;
             }
             $sectors[$sector]->floor_height = $target;
+            $this->settleThings($sector);
             if ($movers[$i]->texture >= 0) {
                 $sectors[$sector]->floor_pic = $movers[$i]->texture;
                 $sectors[$sector]->special = 0;
             }
             $this->finishMover($i);
+        }
+    }
+
+    // Objects ride the planes of the sector they stand in: on the floor, or hung from the ceiling.
+    public function settleThings(int $sector): void {
+        Things $things = $this->things;
+        buffer<Mobj> $mobjs = $things->mobjs;
+        buffer<int> $hanging = $things->types->hanging;
+        int $floor = $this->map->sectors[$sector]->floor_height;
+        int $ceiling = $this->map->sectors[$sector]->ceiling_height;
+        for ($i = 0; $i < $things->count; $i++) {
+            if ($mobjs[$i]->sector !== $sector) {
+                continue;
+            }
+            if ($hanging[$mobjs[$i]->kind] !== 0) {
+                int $hungFrom = $ceiling - $mobjs[$i]->height;
+                $mobjs[$i]->z = $hungFrom;
+            } else {
+                $mobjs[$i]->z = $floor;
+            }
         }
     }
 

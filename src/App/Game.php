@@ -63,7 +63,7 @@ final class Game {
         $this->things = new Things();
         $this->locator = new BspWalker();
         $this->collision = new Collision($this->map, $this->locator, $this->things);
-        $this->specials = new Specials($this->map, $this->collision, $this->textures, $this->wad, $this->trig);
+        $this->specials = new Specials($this->map, $this->collision, $this->things, $this->textures, $this->wad, $this->trig);
         $this->player = new Player();
         $this->renderer = new Renderer($this->wad, $this->palette, $this->textures, $this->flats, $this->sprites, $this->trig, $config->renderWidth, $config->renderHeight);
         $this->state = GameState::Booting;
@@ -195,7 +195,7 @@ final class Game {
         $this->renderer->useMap($map);
         $this->things->spawn($map, $this->sprites, $this->wad, $this->trig, $this->locator);
         $this->collision = new Collision($map, $this->locator, $this->things);
-        $this->specials = new Specials($map, $this->collision, $this->textures, $this->wad, $this->trig);
+        $this->specials = new Specials($map, $this->collision, $this->things, $this->textures, $this->wad, $this->trig);
         int $angle = $this->trig->fromDegrees($map->playerStartAngle);
         int $floor = $this->floorAt($map->playerStartX, $map->playerStartY);
         $this->player->spawn($map->playerStartX, $map->playerStartY, $angle, $floor);
