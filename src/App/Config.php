@@ -13,6 +13,8 @@ final class Config {
     public int $tickRate;
     public bool $vsync;
     public int $bootDurationMs;
+    // load and map messages on stdout
+    public bool $verbose;
 
     public function __construct() {
         // DOOM's 320x200 frame, shown at 4:3 like on the monitors it was drawn for
@@ -27,5 +29,6 @@ final class Config {
         $this->tickRate = 35;
         $this->vsync = true;
         $this->bootDurationMs = 0;
+        $this->verbose = true;
     }
 }

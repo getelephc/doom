@@ -2,49 +2,21 @@
 
 namespace Showcases\Doom\App;
 
-use Showcases\Doom\Bsp\BspWalker;
-use Showcases\Doom\Graphics\Flats;
-use Showcases\Doom\Graphics\Palette;
-use Showcases\Doom\Graphics\Sprites;
-use Showcases\Doom\Graphics\Textures;
-use Showcases\Doom\Map\MapData;
-use Showcases\Doom\Map\MapLoader;
-use Showcases\Doom\Play\Collision;
-use Showcases\Doom\Play\Player;
-use Showcases\Doom\Play\Specials;
-use Showcases\Doom\Play\Things;
-use Showcases\Doom\Render\Renderer;
 use Showcases\Doom\SDL\Input;
 use Showcases\Doom\SDL\SDL;
-use Showcases\Doom\Support\Trig;
-use Showcases\Doom\Wad\Wad;
 
+// The window around a Session: keyboard, the fixed 35 Hz tic clock, one frame per
+// loop iteration presented through SDL, and the frame-rate statistics.
 final class Game {
     public Config $config;
     public SDL $sdl;
     public Input $input;
-    public Trig $trig;
-    public Wad $wad;
-    public Palette $palette;
-    public Textures $textures;
-    public Flats $flats;
-    public Sprites $sprites;
-    public MapLoader $mapLoader;
-    public MapData $map;
-    public Things $things;
-    public BspWalker $locator;
-    public Collision $collision;
-    public Specials $specials;
-    public Player $player;
-    // created by bootData() once the WAD's pictures are loaded
-    public Renderer $renderer;
+    public Session $session;
     public GameState $state;
-    public string $mapName;
     public bool $vsyncToggleHeld;
     public bool $mapToggleHeld;
     public string $fpsText;
     public int $tic;
-    public int $levelTime;
     public int $statStartTicks;
     public int $statFrames;
     public int $statRenderNanos;
@@ -53,33 +25,19 @@ final class Game {
         $this->config = $config;
         $this->sdl = new SDL();
         $this->input = new Input();
-        $this->trig = new Trig();
-        $this->wad = new Wad();
-        $this->palette = new Palette();
-        $this->textures = new Textures();
-        $this->flats = new Flats();
-        $this->sprites = new Sprites();
-        $this->mapLoader = new MapLoader();
-        $this->map = new MapData("", -1);
-        $this->things = new Things();
-        $this->locator = new BspWalker();
-        $this->collision = new Collision($this->map, $this->locator, $this->things);
-        $this->specials = new Specials($this->map, $this->collision, $this->things, $this->textures, $this->wad, $this->trig);
-        $this->player = new Player();
+        $this->session = new Session($config);
         $this->state = GameState::Booting;
-        $this->mapName = "";
         $this->vsyncToggleHeld = false;
         $this->mapToggleHeld = false;
         $this->fpsText = "";
         $this->tic = 0;
-        $this->levelTime = 0;
         $this->statStartTicks = 0;
         $this->statFrames = 0;
         $this->statRenderNanos = 0;
     }
 
     public function run(): void {
-        if (!$this->bootData()) {
+        if (!$this->session->boot()) {
             return;
         }
         if (!$this->sdl->boot($this->config)) {
@@ -91,6 +49,7 @@ final class Game {
         echo "DOOM showcase running\n";
         echo "WASD/arrows move, Shift runs, Space/E uses, Tab shows the map, V toggles vsync, ESC quits\n";
 
+        Session $session = $this->session;
         int $start = $this->sdl->ticks();
         $this->statStartTicks = $start;
         while ($this->state === GameState::Running) {
@@ -117,143 +76,19 @@ final class Game {
                 $this->tic = $skipTo;
             }
             while ($this->tic < $dueTics) {
-                $this->runTic($keys);
+                $session->runTic($this->input, $keys);
                 $this->tic++;
             }
 
             int $renderStart = hrtime(true);
-            $this->renderer->render($this->map, $this->things, $this->player, $this->levelTime, $this->fpsText);
-            $this->renderer->screen->toRgb($this->palette, $this->player->palette());
+            $session->render($this->fpsText);
+            $session->renderer->screen->toRgb($session->palette, $session->player->palette());
             int $renderNanos = hrtime(true) - $renderStart;
-            $this->sdl->present($this->renderer->screen);
+            $this->sdl->present($session->renderer->screen);
             $this->reportStats($now, $renderNanos);
         }
 
         $this->sdl->shutdown();
-    }
-
-    public function runTic(ptr $keys): void {
-        $this->specials->playerX = $this->player->unitX();
-        $this->specials->playerY = $this->player->unitY();
-        $this->specials->playerKeys = $this->player->keys;
-        $this->player->tick($this->input, $keys, $this->collision, $this->specials, $this->trig, $this->levelTime);
-        $this->specials->playerX = $this->player->unitX();
-        $this->specials->playerY = $this->player->unitY();
-        $this->specials->tick();
-        if ($this->things->touch($this->player) > 0) {
-            $this->renderer->hud->say($this->player->message);
-        }
-        $this->renderer->hud->tick($this->levelTime, $this->specials->random());
-        if ($this->player->health <= 0) {
-            // dead: start the level over with a fresh marine
-            $this->player->reset();
-            $this->loadMap($this->mapName);
-            $this->renderer->hud->say("You died");
-            return;
-        }
-        if ($this->specials->teleportPending) {
-            $this->specials->teleportPending = false;
-            int $x = $this->specials->teleportX;
-            int $y = $this->specials->teleportY;
-            $this->player->teleport($x, $y, $this->specials->teleportAngle, $this->floorAt($x, $y));
-        }
-        $this->levelTime++;
-        if ($this->specials->exitRequest !== 0) {
-            $this->loadMap($this->nextMap($this->specials->exitRequest === 2));
-        }
-    }
-
-    public function bootData(): bool {
-        string $wadPath = $this->resolveWadPath();
-        if ($wadPath === "") {
-            echo "No WAD file at " . $this->config->wadPath . "\n";
-            return false;
-        }
-        if (!$this->wad->load($wadPath)) {
-            echo "Failed to load WAD: " . $wadPath . "\n";
-            return false;
-        }
-        echo "Loaded WAD: " . $this->wad->kind . " | lumps: " . $this->wad->lumpCount . "\n";
-        if (!$this->palette->load($this->wad) || !$this->textures->load($this->wad) || !$this->flats->load($this->wad) || !$this->sprites->load($this->wad)) {
-            echo "The WAD lacks PLAYPAL, textures, flats or sprites\n";
-            return false;
-        }
-        echo "Graphics: " . $this->textures->count . " textures, " . $this->flats->count . " flats, " . $this->sprites->count . " sprite frames\n";
-        $this->renderer = new Renderer($this->wad, $this->palette, $this->textures, $this->flats, $this->sprites, $this->trig, $this->config->renderWidth, $this->config->renderHeight);
-        return $this->loadMap($this->config->startupMap);
-    }
-
-    // Switches to map $name. Buffers are not reclaimed on their own, so the previous
-    // map, its objects, collision data and specials are released here, once the
-    // renderer and the new objects no longer read them.
-    public function loadMap(string $name): bool {
-        MapData $map = $this->mapLoader->load($this->wad, $this->textures, $this->flats, $name);
-        if (!$map->isValid()) {
-            $map->release();
-            echo "Map " . $name . " not found or incomplete\n";
-            return false;
-        }
-        MapData $previous = $this->map;
-        $this->map = $map;
-        $this->mapName = $name;
-        $this->levelTime = 0;
-        $this->renderer->useMap($map);
-        $this->things->spawn($map, $this->sprites, $this->wad, $this->trig, $this->locator);
-        $this->collision->release();
-        $this->collision = new Collision($map, $this->locator, $this->things);
-        $this->specials->release();
-        $this->specials = new Specials($map, $this->collision, $this->things, $this->textures, $this->wad, $this->trig);
-        $previous->release();
-        int $angle = $this->trig->fromDegrees($map->playerStartAngle);
-        int $floor = $this->floorAt($map->playerStartX, $map->playerStartY);
-        $this->player->spawn($map->playerStartX, $map->playerStartY, $angle, $floor);
-        $this->player->keys = 0;
-        $this->renderer->hud->say($name);
-        echo $map->summary() . " | " . $this->things->count . " objects\n";
-        return true;
-    }
-
-    // E1M8 ends the episode, the secret exit leads to E1M9, and E1M9 returns to E1M4.
-    public function nextMap(bool $secret): string {
-        string $episode = substr($this->mapName, 1, 1);
-        int $mission = (int)substr($this->mapName, 3, 1);
-        int $next = $mission + 1;
-        if ($secret) {
-            $next = 9;
-        } else if ($mission === 9) {
-            $next = 4;
-            if ($episode === "2") {
-                $next = 6;
-            } else if ($episode === "3") {
-                $next = 7;
-            }
-        } else if ($mission === 8) {
-            $next = 1;
-        }
-        string $name = "E" . $episode . "M" . $next;
-        if ($this->wad->find($name) < 0) {
-            return "E1M1";
-        }
-        return $name;
-    }
-
-    public function floorAt(int $x, int $y): int {
-        int $sector = $this->collision->sectorAt($x, $y);
-        if ($sector < 0) {
-            return 0;
-        }
-        return $this->map->sectors[$sector]->floor_height;
-    }
-
-    public function resolveWadPath(): string {
-        if (file_exists($this->config->wadPath)) {
-            return $this->config->wadPath;
-        }
-        string $repoRelative = "showcases/doom/" . $this->config->wadPath;
-        if (file_exists($repoRelative)) {
-            return $repoRelative;
-        }
-        return "";
     }
 
     // Once per second: frames shown and the average time spent drawing one frame.
@@ -279,7 +114,7 @@ final class Game {
         if ($this->sdl->vsync) {
             $vsync = "on";
         }
-        string $stats = $this->mapName . " | " . $fps . " fps | render " . $whole . "." . $padding . $fraction . " ms | vsync " . $vsync;
+        string $stats = $this->session->mapName . " | " . $fps . " fps | render " . $whole . "." . $padding . $fraction . " ms | vsync " . $vsync;
         $this->fpsText = $fps . " FPS " . $whole . "." . $padding . $fraction . " MS";
         $this->sdl->setTitle($this->config->windowTitle . " | " . $stats);
         echo $stats . "\n";
@@ -294,7 +129,7 @@ final class Game {
             return;
         }
         if (!$this->mapToggleHeld) {
-            $this->renderer->showAutomap = !$this->renderer->showAutomap;
+            $this->session->renderer->showAutomap = !$this->session->renderer->showAutomap;
         }
         $this->mapToggleHeld = true;
     }

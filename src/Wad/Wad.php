@@ -25,23 +25,22 @@ final class Wad {
     }
 
     public function load(string $path): bool {
-        $file = SDL_RWFromFile($path, "rb");
-        if (ptr_is_null($file)) {
+        if (!is_file($path)) {
             return false;
         }
-        int $size = SDL_RWsize($file);
+        $read = file_get_contents($path);
+        if (!is_string($read)) {
+            return false;
+        }
+        string $bytes = (string)$read;
+        int $size = strlen($bytes);
         if ($size < 12) {
-            SDL_RWclose($file);
             return false;
         }
         buffer<u8> $placeholder = $this->data;
         buffer_free($placeholder);
         $this->data = buffer_new<u8>($size);
-        int $read = SDL_RWread($file, buffer_ptr($this->data), 1, $size);
-        SDL_RWclose($file);
-        if ($read !== $size) {
-            return false;
-        }
+        ptr_write_string(buffer_ptr($this->data), $bytes);
         $this->size = $size;
         int $magic = $this->keyAt(0);
         int $kindKey = $magic & 4294967295;

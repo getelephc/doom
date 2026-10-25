@@ -19,8 +19,4 @@ extern "SDL2" {
     function SDL_GetTicks(): u32;
     function SDL_Delay(u32 $ms): void;
     function SDL_GetError(): string;
-    function SDL_RWFromFile(string $file, string $mode): ptr;
-    function SDL_RWsize(ptr $context): i64;
-    function SDL_RWread(ptr $context, ptr $data, u64 $size, u64 $count): u64;
-    function SDL_RWclose(ptr $context): i32;
 }
