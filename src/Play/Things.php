@@ -95,11 +95,14 @@ final class Things {
         $this->count = $count;
     }
 
-    // Items the player's 16-unit box touches; returns how many were taken.
+    // Items the player's 16-unit box touches; returns how many were taken. Like DOOM,
+    // an item counts only from 8 units below the player's feet up to the top of the
+    // player's 56-unit body, so nothing is collected from a ledge overhead or below.
     public function touch(Player $player): int {
         buffer<Mobj> $mobjs = $this->mobjs;
         int $x = $player->unitX();
         int $y = $player->unitY();
+        int $z = $player->unitZ();
         int $taken = 0;
         for ($i = 0; $i < $this->count; $i++) {
             if ($mobjs[$i]->active === 0 || $mobjs[$i]->solid !== 0) {
@@ -109,6 +112,10 @@ final class Things {
             int $dx = $mobjs[$i]->x - $x;
             int $dy = $mobjs[$i]->y - $y;
             if ($dx >= $reach || $dx <= -$reach || $dy >= $reach || $dy <= -$reach) {
+                continue;
+            }
+            int $dz = $mobjs[$i]->z - $z;
+            if ($dz > 56 || $dz < -8) {
                 continue;
             }
             if ($player->pickup($mobjs[$i]->type)) {
