@@ -74,16 +74,11 @@ final class Specials {
         $this->teleportX = 0;
         $this->teleportY = 0;
         $this->teleportAngle = 0;
-        // buffer_new() takes a plain int, not an expression
-        int $textureSlots = $textures->count + 1;
-        int $sectorSlots = $map->sectorCount + 1;
-        int $lineSides = $map->linedefCount * 2;
-        int $lineSlots = $lineSides + 1;
-        $this->switchPair = buffer_new<int>($textureSlots);
+        $this->switchPair = buffer_new<int>($textures->count + 1);
         $this->buildSwitchPairs($textures, $wad);
-        $this->sectorLineStart = buffer_new<int>($sectorSlots);
-        $this->sectorLineCount = buffer_new<int>($sectorSlots);
-        $this->sectorLines = buffer_new<int>($lineSlots);
+        $this->sectorLineStart = buffer_new<int>($map->sectorCount + 1);
+        $this->sectorLineCount = buffer_new<int>($map->sectorCount + 1);
+        $this->sectorLines = buffer_new<int>($map->linedefCount * 2 + 1);
         $this->buildSectorLines();
         $this->spawnSectorSpecials();
         $this->spawnScrollers();

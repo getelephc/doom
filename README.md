@@ -109,12 +109,11 @@ src/
 
 ## Performance notes
 
-A frame takes about 2 ms on a desktop x86_64 CPU, mostly spent writing floor, wall and sprite pixels. The code keeps to the shapes elephc compiles to plain machine integers:
+A frame takes about 2 ms on a desktop x86_64 CPU, mostly spent writing floor, wall and sprite pixels. The per-frame code keeps to the shapes elephc compiles to plain machine integers; loading code is written freely:
 
-- Loops count with `$i++` against a bound held in an `int` local; `$i += 1`, `$i = $i + 1` and `<=` bounds keep the counter boxed.
+- Loops count with `$i++` from a local, against a bound held in an `int` local or written as `$n - 1`; `$i += 1`, `$i = $i + 1`, `<=` and `$n + 1` bounds keep the counter boxed, so inclusive ranges use an `int $end = $last + 1;` bound, and a loop starting at `$start + 1` declares that start as an `int` local first.
 - Integer arithmetic is written one operation per typed declaration (`int $p = $a * $b;`), and locals are reassigned only from other locals, constants or call results. A nested operation, an arithmetic call argument or an arithmetic reassignment may overflow to float, so elephc boxes it.
-- Hot calls pass only ints and buffers; object arguments go through the exception-safe release path.
-- `buffer_new<T>()` takes a plain `int` local as its length, not an expression.
+- Hot calls pass only ints and buffers: an object argument costs about 20 ns per call, ten times an int-only call.
 
 ## Known limitations
 

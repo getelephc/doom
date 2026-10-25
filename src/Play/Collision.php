@@ -29,8 +29,7 @@ final class Collision {
         $this->map = $map;
         $this->locator = $locator;
         $this->things = $things;
-        int $lines = $map->linedefCount + 1;
-        $this->lineStamp = buffer_new<int>($lines);
+        $this->lineStamp = buffer_new<int>($map->linedefCount + 1);
         $this->stamp = 0;
         $this->floorZ = 0;
         $this->ceilingZ = 0;

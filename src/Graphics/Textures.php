@@ -37,8 +37,7 @@ final class Textures {
         }
         int $pnamesAt = $wad->lumpOffset[$pnames];
         int $patchCount = $wad->i32($pnamesAt);
-        int $patchSlots = $patchCount + 1;
-        buffer<int> $patchLump = buffer_new<int>($patchSlots);
+        buffer<int> $patchLump = buffer_new<int>($patchCount + 1);
         int $namesAt = $pnamesAt + 4;
         for ($p = 0; $p < $patchCount; $p++) {
             int $nameOffset = $p * 8;
@@ -98,8 +97,7 @@ final class Textures {
             $total = $grown;
         }
 
-        int $texelCount = $total + 1;
-        $this->texels = buffer_new<u8>($texelCount);
+        $this->texels = buffer_new<u8>($total + 1);
         for ($t = 0; $t < $count; $t++) {
             int $defAt = $definition[$t];
             int $patchCountAt = $defAt + 20;
