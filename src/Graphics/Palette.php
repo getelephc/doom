@@ -30,6 +30,8 @@ final class Palette {
         }
         int $entries = $count * 256;
         $this->count = $count;
+        buffer<u32> $oldArgb = $this->argb;
+        buffer_free($oldArgb);
         $this->argb = buffer_new<u32>($entries);
         buffer<u32> $argb = $this->argb;
         int $base = $wad->lumpOffset[$palette];

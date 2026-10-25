@@ -60,9 +60,20 @@ final class Textures {
         }
         int $count = $firstCount + $secondCount;
         if ($count <= 0) {
+            buffer_free($patchLump);
             return false;
         }
         $this->count = $count;
+        buffer<int> $oldWidth = $this->width;
+        buffer_free($oldWidth);
+        buffer<int> $oldHeight = $this->height;
+        buffer_free($oldHeight);
+        buffer<int> $oldOffset = $this->offset;
+        buffer_free($oldOffset);
+        buffer<int> $oldKey = $this->key;
+        buffer_free($oldKey);
+        buffer<int> $oldTranslation = $this->translation;
+        buffer_free($oldTranslation);
         $this->width = buffer_new<int>($count);
         $this->height = buffer_new<int>($count);
         $this->offset = buffer_new<int>($count);
@@ -100,6 +111,10 @@ final class Textures {
             $total = $grown;
         }
 
+        buffer<u8> $oldTexels = $this->texels;
+        buffer_free($oldTexels);
+        buffer<u8> $oldOpaque = $this->opaque;
+        buffer_free($oldOpaque);
         $this->texels = buffer_new<u8>($total + 1);
         $this->opaque = buffer_new<u8>($total + 1);
         for ($t = 0; $t < $count; $t++) {
@@ -123,6 +138,8 @@ final class Textures {
                 $this->composite($wad, $t, $lump, $wad->i16($patchAt), $wad->i16($originYAt));
             }
         }
+        buffer_free($definition);
+        buffer_free($patchLump);
 
         $this->sky = $this->find($wad->key("SKY1"));
         $this->addAnimation($wad, "BLODGR1", "BLODGR4");

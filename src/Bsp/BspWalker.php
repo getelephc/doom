@@ -11,7 +11,6 @@ final class BspWalker {
     // subsector indices front to back for the last walk; only the first $count are valid
     public buffer<int> $order;
     public int $count;
-    public buffer<Node> $nodes;
     public int $nodeCount;
     public int $subSectorCount;
     public int $viewX;
@@ -20,7 +19,6 @@ final class BspWalker {
     public function __construct() {
         $this->order = buffer_new<int>(1);
         $this->count = 0;
-        $this->nodes = buffer_new<Node>(1);
         $this->nodeCount = 0;
         $this->subSectorCount = 0;
         $this->viewX = 0;
@@ -33,6 +31,8 @@ final class BspWalker {
             return 0;
         }
         if (buffer_len($this->order) < $map->subSectorCount) {
+            buffer<int> $smaller = $this->order;
+            buffer_free($smaller);
             $this->order = buffer_new<int>($map->subSectorCount);
         }
         if ($map->nodeCount <= 0) {
@@ -43,31 +43,30 @@ final class BspWalker {
             return $this->count;
         }
 
-        $this->nodes = $map->nodes;
         $this->nodeCount = $map->nodeCount;
         $this->subSectorCount = $map->subSectorCount;
         $this->viewX = $x;
         $this->viewY = $y;
         int $root = $map->nodeCount - 1;
-        $this->visitNode($root);
+        $this->visitNode($map->nodes, $root);
         return $this->count;
     }
 
-    public function visitNode(int $nodeIndex): void {
+    public function visitNode(buffer<Node> $nodes, int $nodeIndex): void {
         if ($nodeIndex < 0 || $nodeIndex >= $this->nodeCount) {
             return;
         }
-        int $nearChild = $this->nodes[$nodeIndex]->left_child;
-        int $farChild = $this->nodes[$nodeIndex]->right_child;
-        if ($this->sideOf($nodeIndex, $this->viewX, $this->viewY) > 0) {
-            $nearChild = $this->nodes[$nodeIndex]->right_child;
-            $farChild = $this->nodes[$nodeIndex]->left_child;
+        int $nearChild = $nodes[$nodeIndex]->left_child;
+        int $farChild = $nodes[$nodeIndex]->right_child;
+        if ($this->sideOf($nodes, $nodeIndex, $this->viewX, $this->viewY) > 0) {
+            $nearChild = $nodes[$nodeIndex]->right_child;
+            $farChild = $nodes[$nodeIndex]->left_child;
         }
-        $this->visitChild($nearChild);
-        $this->visitChild($farChild);
+        $this->visitChild($nodes, $nearChild);
+        $this->visitChild($nodes, $farChild);
     }
 
-    public function visitChild(int $child): void {
+    public function visitChild(buffer<Node> $nodes, int $child): void {
         if ($child >= 32768) {
             int $subSectorIndex = $child - 32768;
             if ($subSectorIndex < $this->subSectorCount) {
@@ -76,7 +75,7 @@ final class BspWalker {
             }
             return;
         }
-        $this->visitNode($child);
+        $this->visitNode($nodes, $child);
     }
 
     // Subsector containing a point, descending on the point's side of each partition.
@@ -87,13 +86,12 @@ final class BspWalker {
         if ($map->nodeCount <= 0) {
             return 0;
         }
-        $this->nodes = $map->nodes;
-        $this->nodeCount = $map->nodeCount;
+        buffer<Node> $nodes = $map->nodes;
         int $nodeIndex = $map->nodeCount - 1;
         for ($depth = 0; $depth < $map->nodeCount; $depth++) {
-            int $child = $this->nodes[$nodeIndex]->left_child;
-            if ($this->sideOf($nodeIndex, $x, $y) > 0) {
-                $child = $this->nodes[$nodeIndex]->right_child;
+            int $child = $nodes[$nodeIndex]->left_child;
+            if ($this->sideOf($nodes, $nodeIndex, $x, $y) > 0) {
+                $child = $nodes[$nodeIndex]->right_child;
             }
             if ($child >= 32768) {
                 int $subSectorIndex = $child - 32768;
@@ -110,11 +108,11 @@ final class BspWalker {
         return -1;
     }
 
-    public function sideOf(int $nodeIndex, int $px, int $py): int {
-        int $relX = $px - $this->nodes[$nodeIndex]->x;
-        int $relY = $py - $this->nodes[$nodeIndex]->y;
-        int $first = $relX * $this->nodes[$nodeIndex]->dy;
-        int $second = $relY * $this->nodes[$nodeIndex]->dx;
+    public function sideOf(buffer<Node> $nodes, int $nodeIndex, int $px, int $py): int {
+        int $relX = $px - $nodes[$nodeIndex]->x;
+        int $relY = $py - $nodes[$nodeIndex]->y;
+        int $first = $relX * $nodes[$nodeIndex]->dy;
+        int $second = $relY * $nodes[$nodeIndex]->dx;
         int $side = $first - $second;
         return $side;
     }

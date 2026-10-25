@@ -155,11 +155,7 @@ final class BspRenderer {
             $this->yslope[$y] = (int)round($this->focal / $rows * 65536.0);
         }
 
-        $this->segs = buffer_new<Seg>(1);
-        $this->sectors = buffer_new<Sector>(1);
-        $this->sidedefs = buffer_new<Sidedef>(1);
-        $this->linedefs = buffer_new<Linedef>(1);
-        $this->subSectors = buffer_new<SubSector>(1);
+        // the map's record buffers arrive with useMap(), before the first frame
         $this->segCount = 0;
         $this->wadData = $wad->data;
         $this->texels = $textures->texels;

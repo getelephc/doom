@@ -37,6 +37,13 @@ final class Collision {
         $this->touchedCount = 0;
     }
 
+    public function release(): void {
+        buffer<int> $lineStamp = $this->lineStamp;
+        buffer_free($lineStamp);
+        buffer<int> $touched = $this->touched;
+        buffer_free($touched);
+    }
+
     public function sectorAt(int $x, int $y): int {
         int $subSector = $this->locator->subSectorAt($this->map, $x, $y);
         if ($subSector < 0) {

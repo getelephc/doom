@@ -34,6 +34,8 @@ final class Wad {
             SDL_RWclose($file);
             return false;
         }
+        buffer<u8> $placeholder = $this->data;
+        buffer_free($placeholder);
         $this->data = buffer_new<u8>($size);
         int $read = SDL_RWread($file, buffer_ptr($this->data), 1, $size);
         SDL_RWclose($file);
@@ -56,6 +58,12 @@ final class Wad {
             return false;
         }
         $this->lumpCount = $count;
+        buffer<int> $oldOffset = $this->lumpOffset;
+        buffer_free($oldOffset);
+        buffer<int> $oldSize = $this->lumpSize;
+        buffer_free($oldSize);
+        buffer<int> $oldKey = $this->lumpKey;
+        buffer_free($oldKey);
         $this->lumpOffset = buffer_new<int>($count);
         $this->lumpSize = buffer_new<int>($count);
         $this->lumpKey = buffer_new<int>($count);

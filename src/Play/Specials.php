@@ -87,6 +87,26 @@ final class Specials {
         $this->spawnScrollers();
     }
 
+    // Buffers are not reclaimed on their own: the game calls this when it leaves the map.
+    public function release(): void {
+        buffer<Mover> $movers = $this->movers;
+        buffer_free($movers);
+        buffer<LightEffect> $lights = $this->lights;
+        buffer_free($lights);
+        buffer<Button> $buttons = $this->buttons;
+        buffer_free($buttons);
+        buffer<int> $scrollers = $this->scrollers;
+        buffer_free($scrollers);
+        buffer<int> $switchPair = $this->switchPair;
+        buffer_free($switchPair);
+        buffer<int> $lineStart = $this->sectorLineStart;
+        buffer_free($lineStart);
+        buffer<int> $lineCount = $this->sectorLineCount;
+        buffer_free($lineCount);
+        buffer<int> $lines = $this->sectorLines;
+        buffer_free($lines);
+    }
+
     // SW1xxxx and SW2xxxx textures are the two faces of a switch.
     public function buildSwitchPairs(Textures $textures, Wad $wad): void {
         int $sw1 = $wad->key("SW1");

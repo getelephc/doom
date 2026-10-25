@@ -34,6 +34,16 @@ final class Sprites {
         }
         int $capacity = $end - $start;
         int $rotationSlots = $capacity * 8;
+        buffer<int> $oldSpriteKey = $this->spriteKey;
+        buffer_free($oldSpriteKey);
+        buffer<int> $oldFrame = $this->frame;
+        buffer_free($oldFrame);
+        buffer<int> $oldRotated = $this->rotated;
+        buffer_free($oldRotated);
+        buffer<int> $oldLump = $this->lump;
+        buffer_free($oldLump);
+        buffer<int> $oldFlip = $this->flip;
+        buffer_free($oldFlip);
         $this->spriteKey = buffer_new<int>($capacity);
         $this->frame = buffer_new<int>($capacity);
         $this->rotated = buffer_new<int>($capacity);

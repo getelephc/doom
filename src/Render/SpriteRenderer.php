@@ -44,6 +44,12 @@ final class SpriteRenderer {
             return;
         }
         if (buffer_len($this->visibleIndex) < $things->count) {
+            buffer<int> $oldIndex = $this->visibleIndex;
+            buffer_free($oldIndex);
+            buffer<int> $oldDepth = $this->visibleDepth;
+            buffer_free($oldDepth);
+            buffer<int> $oldSide = $this->visibleSide;
+            buffer_free($oldSide);
             $this->visibleIndex = buffer_new<int>($things->count);
             $this->visibleDepth = buffer_new<int>($things->count);
             $this->visibleSide = buffer_new<int>($things->count);

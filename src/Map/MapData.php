@@ -79,6 +79,32 @@ final class MapData {
         $this->blockList = buffer_new<int>(1);
     }
 
+    // Frees every record buffer. Each property always holds a live buffer of its own
+    // (the loader frees a placeholder before it stores the real one), so this is the
+    // map's only cleanup; the game calls it once nothing reads the map any more.
+    public function release(): void {
+        buffer<Thing> $things = $this->things;
+        buffer_free($things);
+        buffer<Linedef> $linedefs = $this->linedefs;
+        buffer_free($linedefs);
+        buffer<Sidedef> $sidedefs = $this->sidedefs;
+        buffer_free($sidedefs);
+        buffer<Vertex> $vertexes = $this->vertexes;
+        buffer_free($vertexes);
+        buffer<Seg> $segs = $this->segs;
+        buffer_free($segs);
+        buffer<SubSector> $subSectors = $this->subSectors;
+        buffer_free($subSectors);
+        buffer<Node> $nodes = $this->nodes;
+        buffer_free($nodes);
+        buffer<Sector> $sectors = $this->sectors;
+        buffer_free($sectors);
+        buffer<int> $blockCell = $this->blockCell;
+        buffer_free($blockCell);
+        buffer<int> $blockList = $this->blockList;
+        buffer_free($blockList);
+    }
+
     public function isValid(): bool {
         return $this->markerIndex >= 0;
     }

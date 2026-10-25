@@ -36,6 +36,7 @@ final class Game {
     public Collision $collision;
     public Specials $specials;
     public Player $player;
+    // created by bootData() once the WAD's pictures are loaded
     public Renderer $renderer;
     public GameState $state;
     public string $mapName;
@@ -65,7 +66,6 @@ final class Game {
         $this->collision = new Collision($this->map, $this->locator, $this->things);
         $this->specials = new Specials($this->map, $this->collision, $this->things, $this->textures, $this->wad, $this->trig);
         $this->player = new Player();
-        $this->renderer = new Renderer($this->wad, $this->palette, $this->textures, $this->flats, $this->sprites, $this->trig, $config->renderWidth, $config->renderHeight);
         $this->state = GameState::Booting;
         $this->mapName = "";
         $this->vsyncToggleHeld = false;
@@ -183,19 +183,27 @@ final class Game {
         return $this->loadMap($this->config->startupMap);
     }
 
+    // Switches to map $name. Buffers are not reclaimed on their own, so the previous
+    // map, its objects, collision data and specials are released here, once the
+    // renderer and the new objects no longer read them.
     public function loadMap(string $name): bool {
         MapData $map = $this->mapLoader->load($this->wad, $this->textures, $this->flats, $name);
         if (!$map->isValid()) {
+            $map->release();
             echo "Map " . $name . " not found or incomplete\n";
             return false;
         }
+        MapData $previous = $this->map;
         $this->map = $map;
         $this->mapName = $name;
         $this->levelTime = 0;
         $this->renderer->useMap($map);
         $this->things->spawn($map, $this->sprites, $this->wad, $this->trig, $this->locator);
+        $this->collision->release();
         $this->collision = new Collision($map, $this->locator, $this->things);
+        $this->specials->release();
         $this->specials = new Specials($map, $this->collision, $this->things, $this->textures, $this->wad, $this->trig);
+        $previous->release();
         int $angle = $this->trig->fromDegrees($map->playerStartAngle);
         int $floor = $this->floorAt($map->playerStartX, $map->playerStartY);
         $this->player->spawn($map->playerStartX, $map->playerStartY, $angle, $floor);

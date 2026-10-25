@@ -95,6 +95,8 @@ final class MapLoader {
                 $map->maxY = $y;
             }
         }
+        buffer<Vertex> $placeholder = $map->vertexes;
+        buffer_free($placeholder);
         $map->vertexes = $vertexes;
     }
 
@@ -118,6 +120,8 @@ final class MapLoader {
             $sectors[$i]->tag = $wad->u16($tagAt);
             $sectors[$i]->mover = 0;
         }
+        buffer<Sector> $placeholder = $map->sectors;
+        buffer_free($placeholder);
         $map->sectors = $sectors;
     }
 
@@ -142,6 +146,8 @@ final class MapLoader {
             $sidedefs[$i]->middle = $textures->find($wad->keyAt($middleAt));
             $sidedefs[$i]->sector = $sector;
         }
+        buffer<Sidedef> $placeholder = $map->sidedefs;
+        buffer_free($placeholder);
         $map->sidedefs = $sidedefs;
     }
 
@@ -195,6 +201,8 @@ final class MapLoader {
                 $linedefs[$i]->back_sector = $sidedefs[$left]->sector;
             }
         }
+        buffer<Linedef> $placeholder = $map->linedefs;
+        buffer_free($placeholder);
         $map->linedefs = $linedefs;
     }
 
@@ -262,6 +270,8 @@ final class MapLoader {
             int $lengthSquared = $dxSquared + $dySquared;
             $segs[$i]->length = (int)round(sqrt($lengthSquared));
         }
+        buffer<Seg> $placeholder = $map->segs;
+        buffer_free($placeholder);
         $map->segs = $segs;
     }
 
@@ -280,6 +290,8 @@ final class MapLoader {
                 $subSectors[$i]->sector = $segs[$first]->front_sector;
             }
         }
+        buffer<SubSector> $placeholder = $map->subSectors;
+        buffer_free($placeholder);
         $map->subSectors = $subSectors;
     }
 
@@ -304,6 +316,8 @@ final class MapLoader {
             $nodes[$i]->right_child = $wad->u16($rightAt);
             $nodes[$i]->left_child = $wad->u16($leftAt);
         }
+        buffer<Node> $placeholder = $map->nodes;
+        buffer_free($placeholder);
         $map->nodes = $nodes;
     }
 
@@ -334,6 +348,8 @@ final class MapLoader {
                 $foundStart = true;
             }
         }
+        buffer<Thing> $placeholder = $map->things;
+        buffer_free($placeholder);
         $map->things = $things;
     }
 
@@ -362,6 +378,7 @@ final class MapLoader {
         int $cells = $columns * $rows;
         int $headerWords = $cells + 4;
         if ($cells <= 0 || $headerWords > $words) {
+            buffer_free($list);
             return;
         }
         buffer<int> $cell = buffer_new<int>($cells);
@@ -378,6 +395,10 @@ final class MapLoader {
         $map->blockOriginY = $wad->i16($originYAt);
         $map->blockColumns = $wad->u16($columnsAt);
         $map->blockRows = $wad->u16($rowsAt);
+        buffer<int> $oldCell = $map->blockCell;
+        buffer_free($oldCell);
+        buffer<int> $oldList = $map->blockList;
+        buffer_free($oldList);
         $map->blockCell = $cell;
         $map->blockList = $list;
     }

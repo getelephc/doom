@@ -25,6 +25,11 @@ final class Things {
     }
 
     public function spawn(MapData $map, Sprites $sprites, Wad $wad, Trig $trig, BspWalker $locator): void {
+        // the previous map's objects go
+        buffer<Mobj> $previous = $this->mobjs;
+        buffer_free($previous);
+        buffer<int> $previousDefinitions = $this->frameDefinition;
+        buffer_free($previousDefinitions);
         int $capacity = $map->thingCount + 1;
         $this->mobjs = buffer_new<Mobj>($capacity);
         $this->frameDefinition = buffer_new<int>($capacity * 4);

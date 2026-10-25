@@ -30,6 +30,12 @@ final class Flats {
             return false;
         }
         int $slots = $end - $start;
+        buffer<int> $oldOffset = $this->offset;
+        buffer_free($oldOffset);
+        buffer<int> $oldKey = $this->key;
+        buffer_free($oldKey);
+        buffer<int> $oldTranslation = $this->translation;
+        buffer_free($oldTranslation);
         $this->offset = buffer_new<int>($slots);
         $this->key = buffer_new<int>($slots);
         $this->translation = buffer_new<int>($slots);
