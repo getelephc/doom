@@ -2,7 +2,16 @@
 
 namespace Showcases\Doom\Map;
 
-class MapData {
+use Showcases\Doom\Data\Linedef;
+use Showcases\Doom\Data\Node;
+use Showcases\Doom\Data\Sector;
+use Showcases\Doom\Data\Seg;
+use Showcases\Doom\Data\Sidedef;
+use Showcases\Doom\Data\SubSector;
+use Showcases\Doom\Data\Thing;
+use Showcases\Doom\Data\Vertex;
+
+final class MapData {
     public string $mapName;
     public int $markerIndex;
     public int $thingCount;
@@ -20,18 +29,21 @@ class MapData {
     public int $playerStartX;
     public int $playerStartY;
     public int $playerStartAngle;
-    public $things;
-    public $linedefs;
-    public $sidedefs;
-    public $vertexes;
-    public $segs;
-    public $subSectors;
-    public $nodes;
-    public $sectors;
-    public $paletteReds;
-    public $paletteGreens;
-    public $paletteBlues;
-    public int $paletteCount;
+    public buffer<Thing> $things;
+    public buffer<Linedef> $linedefs;
+    public buffer<Sidedef> $sidedefs;
+    public buffer<Vertex> $vertexes;
+    public buffer<Seg> $segs;
+    public buffer<SubSector> $subSectors;
+    public buffer<Node> $nodes;
+    public buffer<Sector> $sectors;
+    // BLOCKMAP: 128-unit cells, each a list of linedef indices ending in -1
+    public int $blockOriginX;
+    public int $blockOriginY;
+    public int $blockColumns;
+    public int $blockRows;
+    public buffer<int> $blockCell;
+    public buffer<int> $blockList;
 
     public function __construct(string $mapName, int $markerIndex) {
         $this->mapName = $mapName;
@@ -51,62 +63,35 @@ class MapData {
         $this->playerStartX = 0;
         $this->playerStartY = 0;
         $this->playerStartAngle = 0;
-        $this->things = 0;
-        $this->linedefs = 0;
-        $this->sidedefs = 0;
-        $this->vertexes = 0;
-        $this->segs = 0;
-        $this->subSectors = 0;
-        $this->nodes = 0;
-        $this->sectors = 0;
-        $this->paletteReds = [];
-        $this->paletteGreens = [];
-        $this->paletteBlues = [];
-        $this->paletteCount = 0;
+        $this->things = buffer_new<Thing>(1);
+        $this->linedefs = buffer_new<Linedef>(1);
+        $this->sidedefs = buffer_new<Sidedef>(1);
+        $this->vertexes = buffer_new<Vertex>(1);
+        $this->segs = buffer_new<Seg>(1);
+        $this->subSectors = buffer_new<SubSector>(1);
+        $this->nodes = buffer_new<Node>(1);
+        $this->sectors = buffer_new<Sector>(1);
+        $this->blockOriginX = 0;
+        $this->blockOriginY = 0;
+        $this->blockColumns = 0;
+        $this->blockRows = 0;
+        $this->blockCell = buffer_new<int>(1);
+        $this->blockList = buffer_new<int>(1);
     }
 
     public function isValid(): bool {
         return $this->markerIndex >= 0;
     }
 
-    public function hasBounds(): bool {
-        return $this->vertexCount > 0;
-    }
-
-    public function hasPlayerStart(): bool {
-        return $this->thingCount > 0;
-    }
-
     public function summary(): string {
-        string $summary = $this->mapName
-            . ": "
-            . $this->vertexCount
-            . " vertices, "
-            . $this->linedefCount
-            . " linedefs, "
-            . $this->sidedefCount
-            . " sidedefs, "
-            . $this->sectorCount
-            . " sectors, "
-            . $this->thingCount
-            . " things, "
-            . $this->segCount
-            . " segs, "
-            . $this->subSectorCount
-            . " subsectors, "
-            . $this->nodeCount
-            . " nodes";
-
-        if ($this->hasBounds()) {
-            $summary .= " | bounds: (" . $this->minX . ", " . $this->minY . ") -> ("
-                . $this->maxX . ", " . $this->maxY . ")";
-        }
-
-        if ($this->hasPlayerStart()) {
-            $summary .= " | player: (" . $this->playerStartX . ", " . $this->playerStartY . ") @ "
-                . $this->playerStartAngle;
-        }
-
-        return $summary;
+        return $this->mapName
+            . ": " . $this->vertexCount . " vertices, "
+            . $this->linedefCount . " linedefs, "
+            . $this->sidedefCount . " sidedefs, "
+            . $this->sectorCount . " sectors, "
+            . $this->thingCount . " things, "
+            . $this->segCount . " segs, "
+            . $this->subSectorCount . " subsectors, "
+            . $this->nodeCount . " nodes";
     }
 }

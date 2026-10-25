@@ -2,430 +2,303 @@
 
 namespace Showcases\Doom\App;
 
-use Showcases\Doom\Player\Camera;
+use Showcases\Doom\Bsp\BspWalker;
+use Showcases\Doom\Graphics\Flats;
+use Showcases\Doom\Graphics\Palette;
+use Showcases\Doom\Graphics\Sprites;
+use Showcases\Doom\Graphics\Textures;
+use Showcases\Doom\Map\MapData;
+use Showcases\Doom\Map\MapLoader;
+use Showcases\Doom\Play\Collision;
+use Showcases\Doom\Play\Player;
+use Showcases\Doom\Play\Specials;
+use Showcases\Doom\Play\Things;
 use Showcases\Doom\Render\Renderer;
 use Showcases\Doom\SDL\Input;
 use Showcases\Doom\SDL\SDL;
-use Showcases\Doom\Map\MapData;
-use Showcases\Doom\Map\MapLoader;
-use Showcases\Doom\Support\Direction;
-use Showcases\Doom\Wad\WadFile;
-use Showcases\Doom\Wad\WadLoader;
+use Showcases\Doom\Support\Trig;
+use Showcases\Doom\Wad\Wad;
 
-class Game {
-    public $config;
-    public $sdl;
-    public $input;
-    public $camera;
-    public $renderer;
-    public $state;
-    public $wadLoader;
-    public $mapLoader;
-    public $wad;
-    public $map;
-    public $mapToggleHeld;
-    public $direction;
+final class Game {
+    public Config $config;
+    public SDL $sdl;
+    public Input $input;
+    public Trig $trig;
+    public Wad $wad;
+    public Palette $palette;
+    public Textures $textures;
+    public Flats $flats;
+    public Sprites $sprites;
+    public MapLoader $mapLoader;
+    public MapData $map;
+    public Things $things;
+    public BspWalker $locator;
+    public Collision $collision;
+    public Specials $specials;
+    public Player $player;
+    public Renderer $renderer;
+    public GameState $state;
+    public string $mapName;
+    public bool $vsyncToggleHeld;
+    public bool $mapToggleHeld;
+    public string $fpsText;
+    public int $tic;
+    public int $levelTime;
+    public int $statStartTicks;
+    public int $statFrames;
+    public int $statRenderNanos;
 
     public function __construct(Config $config) {
         $this->config = $config;
         $this->sdl = new SDL();
         $this->input = new Input();
-        $this->camera = new Camera();
-        $this->renderer = new Renderer();
-        $this->state = GameState::Booting;
-        $this->wadLoader = new WadLoader();
+        $this->trig = new Trig();
+        $this->wad = new Wad();
+        $this->palette = new Palette();
+        $this->textures = new Textures();
+        $this->flats = new Flats();
+        $this->sprites = new Sprites();
         $this->mapLoader = new MapLoader();
-        $this->wad = new WadFile("", "", 0, 0);
         $this->map = new MapData("", -1);
-        $this->mapToggleHeld = 0;
-        $this->direction = new Direction();
+        $this->things = new Things();
+        $this->locator = new BspWalker();
+        $this->collision = new Collision($this->map, $this->locator, $this->things);
+        $this->specials = new Specials($this->map, $this->collision, $this->textures, $this->wad, $this->trig);
+        $this->player = new Player();
+        $this->renderer = new Renderer($this->wad, $this->palette, $this->textures, $this->flats, $this->sprites, $this->trig, $config->renderWidth, $config->renderHeight);
+        $this->state = GameState::Booting;
+        $this->mapName = "";
+        $this->vsyncToggleHeld = false;
+        $this->mapToggleHeld = false;
+        $this->fpsText = "";
+        $this->tic = 0;
+        $this->levelTime = 0;
+        $this->statStartTicks = 0;
+        $this->statFrames = 0;
+        $this->statRenderNanos = 0;
     }
 
-    public function run() {
-        $this->bootWad();
-
+    public function run(): void {
+        if (!$this->bootData()) {
+            return;
+        }
         if (!$this->sdl->boot($this->config)) {
             echo "SDL boot failed: " . $this->sdl->lastError() . "\n";
             return;
         }
 
         $this->state = GameState::Running;
-        echo "DOOM showcase SDL shell running\n";
-        echo "ESC quits early\n";
+        echo "DOOM showcase running\n";
+        echo "WASD/arrows move, Shift runs, Space/E uses, Tab shows the map, V toggles vsync, ESC quits\n";
 
-        $start = $this->sdl->ticks();
+        int $start = $this->sdl->ticks();
+        $this->statStartTicks = $start;
         while ($this->state === GameState::Running) {
             $this->sdl->pumpEvents();
             $keys = $this->sdl->keyboardState();
-            if ($this->input->shouldQuit($keys)) {
+            if ($this->input->shouldQuit($keys) !== 0) {
                 $this->state = GameState::Stopped;
             }
-
+            $this->handleVsyncToggle($keys);
             $this->handleMapToggle($keys);
 
-            if ($this->map->isValid()) {
-                $this->updateCamera($keys);
-            }
-
-            if (
-                $this->config->bootDurationMs > 0
-                && $this->sdl->ticks() - $start >= $this->config->bootDurationMs
-            ) {
+            int $now = $this->sdl->ticks();
+            if ($this->config->bootDurationMs > 0 && $now - $start >= $this->config->bootDurationMs) {
                 $this->state = GameState::Stopped;
             }
 
-            $this->sdl->clear(
-                $this->config->backgroundR,
-                $this->config->backgroundG,
-                $this->config->backgroundB
-            );
-            if ($this->map->isValid()) {
-                $this->renderer->render($this->sdl, $this->config, $this->map, $this->camera, $this->sdl->ticks());
+            // fixed-rate game tics: run every tic that is due, at most 5 per frame
+            int $elapsed = $now - $start;
+            int $tickTime = $elapsed * $this->config->tickRate;
+            int $dueTics = intdiv($tickTime, 1000);
+            int $behind = $dueTics - $this->tic;
+            if ($behind > 5) {
+                int $skipTo = $dueTics - 5;
+                $this->tic = $skipTo;
             }
-            $this->sdl->present();
-            $this->sdl->delay($this->config->targetFrameMs);
+            while ($this->tic < $dueTics) {
+                $this->runTic($keys);
+                $this->tic++;
+            }
+
+            int $renderStart = hrtime(true);
+            $this->renderer->render($this->map, $this->things, $this->player, $this->levelTime, $this->fpsText);
+            $this->renderer->screen->toRgb($this->palette, $this->player->palette());
+            int $renderNanos = hrtime(true) - $renderStart;
+            $this->sdl->present($this->renderer->screen);
+            $this->reportStats($now, $renderNanos);
         }
 
         $this->sdl->shutdown();
     }
 
-    public function bootWad(): void {
-        $wadPath = $this->resolveWadPath();
+    public function runTic(ptr $keys): void {
+        $this->specials->playerX = $this->player->unitX();
+        $this->specials->playerY = $this->player->unitY();
+        $this->specials->playerKeys = $this->player->keys;
+        $this->player->tick($this->input, $keys, $this->collision, $this->specials, $this->trig, $this->levelTime);
+        $this->specials->playerX = $this->player->unitX();
+        $this->specials->playerY = $this->player->unitY();
+        $this->specials->tick();
+        if ($this->things->touch($this->player) > 0) {
+            $this->renderer->hud->say($this->player->message);
+        }
+        $this->renderer->hud->tick($this->levelTime, $this->specials->random());
+        if ($this->player->health <= 0) {
+            // dead: start the level over with a fresh marine
+            $this->player->reset();
+            $this->loadMap($this->mapName);
+            $this->renderer->hud->say("You died");
+            return;
+        }
+        if ($this->specials->teleportPending) {
+            $this->specials->teleportPending = false;
+            int $x = $this->specials->teleportX;
+            int $y = $this->specials->teleportY;
+            $this->player->teleport($x, $y, $this->specials->teleportAngle, $this->floorAt($x, $y));
+        }
+        $this->levelTime++;
+        if ($this->specials->exitRequest !== 0) {
+            $this->loadMap($this->nextMap($this->specials->exitRequest === 2));
+        }
+    }
+
+    public function bootData(): bool {
+        string $wadPath = $this->resolveWadPath();
         if ($wadPath === "") {
             echo "No WAD file at " . $this->config->wadPath . "\n";
-            return;
+            return false;
         }
-
-        $this->wad = $this->wadLoader->load($wadPath);
-        if (!$this->wad->isValid()) {
+        if (!$this->wad->load($wadPath)) {
             echo "Failed to load WAD: " . $wadPath . "\n";
-            return;
+            return false;
         }
-
-        echo "Loaded WAD: ";
-        echo $this->wad->kind;
-        echo " | lumps: ";
-        echo $this->wad->entryCount;
-        echo " | directory: ";
-        echo $this->wad->directoryOffset;
-        echo "\n";
-
-        if ($this->wad->firstEntryName !== "") {
-            echo "First lump: ";
-            echo $this->wad->firstEntryName;
-            echo " @ ";
-            echo $this->wad->firstEntryOffset;
-            echo " (";
-            echo $this->wad->firstEntrySize;
-            echo " bytes)\n";
+        echo "Loaded WAD: " . $this->wad->kind . " | lumps: " . $this->wad->lumpCount . "\n";
+        if (!$this->palette->load($this->wad) || !$this->textures->load($this->wad) || !$this->flats->load($this->wad) || !$this->sprites->load($this->wad)) {
+            echo "The WAD lacks PLAYPAL, textures, flats or sprites\n";
+            return false;
         }
+        echo "Graphics: " . $this->textures->count . " textures, " . $this->flats->count . " flats, " . $this->sprites->count . " sprite frames\n";
+        $this->renderer = new Renderer($this->wad, $this->palette, $this->textures, $this->flats, $this->sprites, $this->trig, $this->config->renderWidth, $this->config->renderHeight);
+        return $this->loadMap($this->config->startupMap);
+    }
 
-        $this->map = $this->mapLoader->load($this->wad, $this->config->startupMap);
+    public function loadMap(string $name): bool {
+        MapData $map = $this->mapLoader->load($this->wad, $this->textures, $this->flats, $name);
+        if (!$map->isValid()) {
+            echo "Map " . $name . " not found or incomplete\n";
+            return false;
+        }
+        $this->map = $map;
+        $this->mapName = $name;
+        $this->levelTime = 0;
+        $this->renderer->useMap($map);
+        $this->things->spawn($map, $this->sprites, $this->wad, $this->trig, $this->locator);
+        $this->collision = new Collision($map, $this->locator, $this->things);
+        $this->specials = new Specials($map, $this->collision, $this->textures, $this->wad, $this->trig);
+        int $angle = $this->trig->fromDegrees($map->playerStartAngle);
+        int $floor = $this->floorAt($map->playerStartX, $map->playerStartY);
+        $this->player->spawn($map->playerStartX, $map->playerStartY, $angle, $floor);
+        $this->player->keys = 0;
+        $this->renderer->hud->say($name);
+        echo $map->summary() . " | " . $this->things->count . " objects\n";
+        return true;
+    }
 
-        if ($this->map->isValid()) {
-            if ($this->map->hasPlayerStart()) {
-                $this->camera->setSpawn(
-                    $this->map->playerStartX,
-                    $this->map->playerStartY,
-                    $this->map->playerStartAngle
-                );
+    // E1M8 ends the episode, the secret exit leads to E1M9, and E1M9 returns to E1M4.
+    public function nextMap(bool $secret): string {
+        string $episode = substr($this->mapName, 1, 1);
+        int $mission = (int)substr($this->mapName, 3, 1);
+        int $next = $mission + 1;
+        if ($secret) {
+            $next = 9;
+        } else if ($mission === 9) {
+            $next = 4;
+            if ($episode === "2") {
+                $next = 6;
+            } else if ($episode === "3") {
+                $next = 7;
             }
-            echo $this->map->summary() . "\n";
-        } else {
-            echo "Map " . $this->config->startupMap . " not found or incomplete\n";
+        } else if ($mission === 8) {
+            $next = 1;
         }
+        string $name = "E" . $episode . "M" . $next;
+        if ($this->wad->find($name) < 0) {
+            return "E1M1";
+        }
+        return $name;
+    }
+
+    public function floorAt(int $x, int $y): int {
+        int $sector = $this->collision->sectorAt($x, $y);
+        if ($sector < 0) {
+            return 0;
+        }
+        return $this->map->sectors[$sector]->floor_height;
     }
 
     public function resolveWadPath(): string {
         if (file_exists($this->config->wadPath)) {
             return $this->config->wadPath;
         }
-
-        $repoRelative = "showcases/doom/" . $this->config->wadPath;
+        string $repoRelative = "showcases/doom/" . $this->config->wadPath;
         if (file_exists($repoRelative)) {
             return $repoRelative;
         }
-
         return "";
     }
 
+    // Once per second: frames shown and the average time spent drawing one frame.
+    public function reportStats(int $now, int $renderNanos): void {
+        $this->statFrames++;
+        int $total = $this->statRenderNanos + $renderNanos;
+        $this->statRenderNanos = $total;
+        int $elapsed = $now - $this->statStartTicks;
+        if ($elapsed < 1000) {
+            return;
+        }
+        int $frameTime = $this->statFrames * 1000;
+        int $fps = intdiv($frameTime, $elapsed);
+        int $nanosPerFrame = intdiv($this->statRenderNanos, $this->statFrames);
+        int $hundredths = intdiv($nanosPerFrame, 10000);
+        int $whole = intdiv($hundredths, 100);
+        int $fraction = $hundredths % 100;
+        string $padding = "";
+        if ($fraction < 10) {
+            $padding = "0";
+        }
+        string $vsync = "off";
+        if ($this->sdl->vsync) {
+            $vsync = "on";
+        }
+        string $stats = $this->mapName . " | " . $fps . " fps | render " . $whole . "." . $padding . $fraction . " ms | vsync " . $vsync;
+        $this->fpsText = $fps . " FPS " . $whole . "." . $padding . $fraction . " MS";
+        $this->sdl->setTitle($this->config->windowTitle . " | " . $stats);
+        echo $stats . "\n";
+        $this->statStartTicks = $now;
+        $this->statFrames = 0;
+        $this->statRenderNanos = 0;
+    }
+
     public function handleMapToggle(ptr $keys): void {
-        $pressed = $this->input->toggleMap($keys);
-        if ($pressed !== 0) {
-            if ($this->mapToggleHeld === 0) {
-                if ($this->config->renderMode === RenderMode::Split) {
-                    $this->config->renderMode = RenderMode::World3D;
-                } else {
-                    $this->config->renderMode = RenderMode::Split;
-                }
-            }
-            $this->mapToggleHeld = 1;
+        if ($this->input->toggleMap($keys) === 0) {
+            $this->mapToggleHeld = false;
             return;
         }
-
-        $this->mapToggleHeld = 0;
+        if (!$this->mapToggleHeld) {
+            $this->renderer->showAutomap = !$this->renderer->showAutomap;
+        }
+        $this->mapToggleHeld = true;
     }
 
-    public function updateCamera(ptr $keys): void {
-        $moveStep = 24;
-        $turnStep = 5;
-        $moveDx = 0;
-        $moveDy = 0;
-
-        if ($this->input->moveForward($keys)) {
-            $moveDx = $moveDx + $this->forwardStepX($moveStep);
-            $moveDy = $moveDy + $this->forwardStepY($moveStep);
-        }
-        if ($this->input->moveBackward($keys)) {
-            $moveDx = $moveDx - $this->forwardStepX($moveStep);
-            $moveDy = $moveDy - $this->forwardStepY($moveStep);
-        }
-        if ($this->input->moveLeft($keys)) {
-            $moveDx = $moveDx + $this->strafeLeftStepX($moveStep);
-            $moveDy = $moveDy + $this->strafeLeftStepY($moveStep);
-        }
-        if ($this->input->moveRight($keys)) {
-            $moveDx = $moveDx - $this->strafeLeftStepX($moveStep);
-            $moveDy = $moveDy - $this->strafeLeftStepY($moveStep);
-        }
-        if ($this->input->turnLeft($keys)) {
-            $this->camera->rotateBy(-$turnStep);
-        }
-        if ($this->input->turnRight($keys)) {
-            $this->camera->rotateBy($turnStep);
-        }
-
-        if ($moveDx !== 0 || $moveDy !== 0) {
-            $this->tryMoveCamera($moveDx, $moveDy);
-        }
-    }
-
-    public function tryMoveCamera(int $dx, int $dy): void {
-        $targetX = $this->camera->x + $dx;
-        $targetY = $this->camera->y + $dy;
-
-        if ($this->isWalkablePosition($targetX, $targetY)) {
-            $this->camera->setSpawn($targetX, $targetY, $this->camera->angle);
-            $this->camera->z = $this->floorHeightAt($targetX, $targetY);
+    public function handleVsyncToggle(ptr $keys): void {
+        if ($this->input->toggleVsync($keys) === 0) {
+            $this->vsyncToggleHeld = false;
             return;
         }
-
-        if ($dx !== 0 && $this->isWalkablePosition($this->camera->x + $dx, $this->camera->y)) {
-            $this->camera->moveBy($dx, 0);
-            $this->camera->z = $this->floorHeightAt($this->camera->x, $this->camera->y);
+        if (!$this->vsyncToggleHeld) {
+            $this->sdl->setVsync(!$this->sdl->vsync);
         }
-        if ($dy !== 0 && $this->isWalkablePosition($this->camera->x, $this->camera->y + $dy)) {
-            $this->camera->moveBy(0, $dy);
-            $this->camera->z = $this->floorHeightAt($this->camera->x, $this->camera->y);
-        }
-    }
-
-    public function floorHeightAt(int $x, int $y): int {
-        // find the highest floor among sectors whose linedefs are near the point
-        int $bestFloor = 0;
-        int $bestDist = 999999;
-        int $i = 0;
-        while ($i < $this->map->linedefCount) {
-            int $rightSide = $this->map->linedefs[$i]->right_sidedef;
-            if ($rightSide >= 0 && $rightSide < $this->map->sidedefCount) {
-                int $startIndex = $this->map->linedefs[$i]->start_vertex;
-                int $endIndex = $this->map->linedefs[$i]->end_vertex;
-                if ($startIndex >= 0 && $endIndex >= 0 && $startIndex < $this->map->vertexCount && $endIndex < $this->map->vertexCount) {
-                    int $dist = $this->distanceToSegmentSquared(
-                        $x, $y,
-                        $this->map->vertexes[$startIndex]->x,
-                        $this->map->vertexes[$startIndex]->y,
-                        $this->map->vertexes[$endIndex]->x,
-                        $this->map->vertexes[$endIndex]->y
-                    );
-                    if ($dist < $bestDist) {
-                        $bestDist = $dist;
-                        int $sectorIdx = $this->map->sidedefs[$rightSide]->sector_index;
-                        if ($sectorIdx >= 0 && $sectorIdx < $this->map->sectorCount) {
-                            $bestFloor = $this->map->sectors[$sectorIdx]->floor_height;
-                        }
-                    }
-                }
-            }
-            $i += 1;
-        }
-        return $bestFloor;
-    }
-
-    public function isWalkablePosition(int $x, int $y): bool {
-        int $margin = 24;
-        if ($x < $this->map->minX - $margin || $x > $this->map->maxX + $margin) {
-            return false;
-        }
-        if ($y < $this->map->minY - $margin || $y > $this->map->maxY + $margin) {
-            return false;
-        }
-
-        int $i = 0;
-        int $radiusSquared = 16 * 16;
-        while ($i < $this->map->linedefCount) {
-            bool $blocking = false;
-            if ($this->isSolidLinedef($i)) {
-                if ($this->isBlockingSideOfSolidLinedef($i, $x, $y)) {
-                    $blocking = true;
-                }
-            } else if ($this->isBlockingTwoSidedLinedef($i, $this->camera->z)) {
-                $blocking = true;
-            }
-
-            if ($blocking) {
-                int $startIndex = $this->map->linedefs[$i]->start_vertex;
-                int $endIndex = $this->map->linedefs[$i]->end_vertex;
-                if (
-                    $startIndex >= 0
-                    && $endIndex >= 0
-                    && $startIndex < $this->map->vertexCount
-                    && $endIndex < $this->map->vertexCount
-                ) {
-                    int $distanceSquared = $this->distanceToSegmentSquared(
-                        $x,
-                        $y,
-                        $this->map->vertexes[$startIndex]->x,
-                        $this->map->vertexes[$startIndex]->y,
-                        $this->map->vertexes[$endIndex]->x,
-                        $this->map->vertexes[$endIndex]->y
-                    );
-                    if ($distanceSquared < $radiusSquared) {
-                        return false;
-                    }
-                }
-            }
-            $i += 1;
-        }
-
-        // step check: can't step up more than 24 units from current floor
-        int $targetFloor = $this->floorHeightAt($x, $y);
-        if ($targetFloor - $this->camera->z > 24) {
-            return false;
-        }
-
-        return true;
-    }
-
-    public function isSolidLinedef(int $index): bool {
-        if ($this->map->linedefs[$index]->left_sidedef < 0
-            || $this->map->linedefs[$index]->right_sidedef < 0) {
-            return true;
-        }
-        return false;
-    }
-
-    public function isBlockingTwoSidedLinedef(int $index, int $playerZ): bool {
-        int $rightSide = $this->map->linedefs[$index]->right_sidedef;
-        int $leftSide = $this->map->linedefs[$index]->left_sidedef;
-        if ($rightSide < 0 || $leftSide < 0) {
-            return false;
-        }
-        if ($rightSide >= $this->map->sidedefCount || $leftSide >= $this->map->sidedefCount) {
-            return false;
-        }
-
-        int $frontIdx = $this->map->sidedefs[$rightSide]->sector_index;
-        int $backIdx = $this->map->sidedefs[$leftSide]->sector_index;
-        if ($frontIdx < 0 || $backIdx < 0 || $frontIdx >= $this->map->sectorCount || $backIdx >= $this->map->sectorCount) {
-            return false;
-        }
-
-        int $frontFloor = $this->map->sectors[$frontIdx]->floor_height;
-        int $backFloor = $this->map->sectors[$backIdx]->floor_height;
-        int $frontCeiling = $this->map->sectors[$frontIdx]->ceiling_height;
-        int $backCeiling = $this->map->sectors[$backIdx]->ceiling_height;
-
-        // closed door: ceiling <= floor on either side
-        if ($backCeiling <= $backFloor) {
-            return true;
-        }
-        if ($frontCeiling <= $frontFloor) {
-            return true;
-        }
-
-        // ceiling too low to pass (< 56 units above player)
-        int $lowestCeiling = $frontCeiling;
-        if ($backCeiling < $lowestCeiling) {
-            $lowestCeiling = $backCeiling;
-        }
-        if ($lowestCeiling - $playerZ < 56) {
-            return true;
-        }
-
-        return false;
-    }
-
-    public function isBlockingSideOfSolidLinedef(int $index, int $x, int $y): bool {
-        int $startIndex = $this->map->linedefs[$index]->start_vertex;
-        int $endIndex = $this->map->linedefs[$index]->end_vertex;
-        if (
-            $startIndex < 0
-            || $endIndex < 0
-            || $startIndex >= $this->map->vertexCount
-            || $endIndex >= $this->map->vertexCount
-        ) {
-            return false;
-        }
-
-        int $ax = $this->map->vertexes[$startIndex]->x;
-        int $ay = $this->map->vertexes[$startIndex]->y;
-        int $bx = $this->map->vertexes[$endIndex]->x;
-        int $by = $this->map->vertexes[$endIndex]->y;
-        int $edgeX = $bx - $ax;
-        int $edgeY = $by - $ay;
-        int $toPointX = $x - $ax;
-        int $toPointY = $y - $ay;
-        int $cross = ($edgeX * $toPointY) - ($edgeY * $toPointX);
-
-        return $cross < 0;
-    }
-
-    public function distanceToSegmentSquared(
-        int $px,
-        int $py,
-        int $ax,
-        int $ay,
-        int $bx,
-        int $by
-    ): int {
-        int $dx = $bx - $ax;
-        int $dy = $by - $ay;
-        int $lengthSquared = ($dx * $dx) + ($dy * $dy);
-
-        if ($lengthSquared <= 0) {
-            return (($px - $ax) * ($px - $ax)) + (($py - $ay) * ($py - $ay));
-        }
-
-        int $numerator = (($px - $ax) * $dx) + (($py - $ay) * $dy);
-        int $closestX = $ax;
-        int $closestY = $ay;
-
-        if ($numerator >= $lengthSquared) {
-            $closestX = $bx;
-            $closestY = $by;
-        } else if ($numerator > 0) {
-            $closestX = $ax + intdiv($dx * $numerator, $lengthSquared);
-            $closestY = $ay + intdiv($dy * $numerator, $lengthSquared);
-        }
-
-        return (($px - $closestX) * ($px - $closestX))
-            + (($py - $closestY) * ($py - $closestY));
-    }
-
-    public function forwardStepX(int $step): int {
-        return intdiv($this->direction->unitX($this->camera->angle) * $step, 1024);
-    }
-
-    public function forwardStepY(int $step): int {
-        return intdiv($this->direction->unitY($this->camera->angle) * $step, 1024);
-    }
-
-    public function strafeLeftStepX(int $step): int {
-        return intdiv($this->direction->unitY($this->camera->angle) * $step, 1024);
-    }
-
-    public function strafeLeftStepY(int $step): int {
-        return intdiv((-1 * $this->direction->unitX($this->camera->angle)) * $step, 1024);
+        $this->vsyncToggleHeld = true;
     }
 }
