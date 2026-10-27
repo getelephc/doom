@@ -15,4 +15,9 @@ packed class Mover {
     public int $wait;
     public int $countdown;
     public int $texture;
+    public int $cadence;
+    public int $elapsed;
+    public int $crush;
+    public int $changeSpecial;
+    public int $nextDirection;
 }

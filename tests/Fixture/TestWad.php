@@ -30,8 +30,12 @@ final class TestWad {
 
     public array $names;
     public array $lumps;
+    public bool $combat;
+    public bool $full;
 
-    public function __construct() {
+    public function __construct(bool $combat = false, bool $full = false) {
+        $this->combat = $combat;
+        $this->full = $full;
         $this->names = [];
         $this->lumps = [];
         $this->add("PLAYPAL", $this->palette());
@@ -49,7 +53,20 @@ final class TestWad {
         $this->add("BON1A0", $this->patch(64, 64, 32, 64, self::BONUS, 0));
         $this->add("BKEYA0", $this->patch(16, 16, 8, 16, self::KEY, 0));
         $this->add("GOR3A0", $this->patch(16, 52, 8, 52, self::BODY, 0));
+        if ($combat) {
+            $this->combatPictures();
+        }
         $this->add("S_END", "");
+        if ($combat) {
+            $this->add("PISGA0", $this->patch(32, 40, -144, -128, 210, 0));
+            $this->add("PISGB0", $this->patch(32, 40, -144, -128, 211, 0));
+            $this->add("PISFA0", $this->patch(16, 16, -152, -112, 212, 0));
+            $this->add("SHTGA0", $this->patch(40, 40, -140, -128, 213, 0));
+            $this->add("DSPISTOL", $this->u16(3) . $this->u16(11025) . $this->i32(40) . str_repeat(chr(200), 40));
+            $this->add("DSSHOTGN", $this->u16(3) . $this->u16(11025) . $this->i32(40) . str_repeat(chr(255), 40));
+            $this->add("DSPOPAIN", $this->u16(3) . $this->u16(11025) . $this->i32(999999) . chr(200));
+        }
+        if ($full) { $this->fullResources(); }
         $this->addMap("E1M1");
         $this->addMap("E1M2");
     }
@@ -135,10 +152,46 @@ final class TestWad {
 
     // player start, health bonus, blue key card, hanging body (all skills)
     public function things(): string {
-        return $this->thing(64, 128, 0, 1)
+        string $things = $this->thing(64, 128, 0, 1)
             . $this->thing(384, 128, 0, 2014)
             . $this->thing(128, 64, 0, 5)
             . $this->thing(448, 200, 0, 61);
+        if ($this->combat) {
+            $things .= $this->thing(192, 128, 180, 3004)
+                . $this->thing(416, 64, 180, 9)
+                . $this->thing(416, 192, 180, 3001)
+                . $this->thing(224, 192, 0, 2035)
+                . $this->thing(352, 192, 0, 2035);
+        }
+        return $things;
+    }
+
+    // Original pictures are replaced with distinctive solid colors in tests.
+    public function combatPictures(): void {
+        $prefixes = ["POSS", "SPOS", "TROO", "BAR1", "BEXP", "BAL1", "CLIP", "SHOT"];
+        if ($this->full) {
+            $prefixes = ["POSS", "SPOS", "TROO", "BAR1", "BEXP", "BAL1", "CLIP", "SHOT", "SARG", "SKUL", "HEAD", "BOSS", "CYBR", "SPID", "MISL", "PLSS", "PLSE", "BFS1", "BFE1", "BFE2", "BAL2", "BAL7"];
+        }
+        for ($kind = 0; $kind < count($prefixes); $kind++) {
+            for ($f = 0; $f < 26; $f++) {
+                $this->add((string)$prefixes[$kind] . chr(65 + $f) . "0", $this->patch(32, 56, 16, 56, 180 + $kind, 0));
+            }
+        }
+    }
+
+    public function fullResources(): void {
+        $prefixes = ["PUNG", "PISG", "SHTG", "CHGG", "MISG", "PLSG", "BFGG", "SAWG"];
+        for ($w = 0; $w < 8; $w++) {
+            for ($f = 0; $f < 5; $f++) {
+                $this->add((string)$prefixes[$w] . chr(65 + $f) . "0", $this->patch(32, 40, -144, -128, 210 + $w, 0));
+            }
+        }
+        // Instrument 0, middle C at velocity 100, quarter-second sustain, release, loop.
+        string $score = chr(0x90) . chr(0xBC) . chr(100) . chr(35) . chr(0x80) . chr(60) . chr(35) . chr(0x60);
+        string $header = "MUS" . chr(26) . $this->u16(strlen($score)) . $this->u16(16) . $this->u16(1) . $this->u16(0) . $this->u16(0) . $this->u16(0);
+        $this->add("D_E1M1", $header . $score);
+        $this->add("D_E1M2", $header . $score);
+        $this->add("D_BAD", $header . substr($score, 0, 3));
     }
 
     public function thing(int $x, int $y, int $angle, int $type): string {
