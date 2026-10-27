@@ -6,6 +6,7 @@ use Showcases\Doom\Data\Linedef;
 use Showcases\Doom\Data\Sector;
 use Showcases\Doom\Map\MapData;
 use Showcases\Doom\Play\Player;
+use Showcases\Doom\Play\Things;
 use Showcases\Doom\Support\Trig;
 
 // DOOM's automap, north up and centered on the player: lines the player has seen,
@@ -15,6 +16,7 @@ final class Automap {
     public Screen $screen;
     public int $viewHeight;
     public int $scale;
+    public int $reveal = 0;
 
     public function __construct(Screen $screen, int $viewHeight) {
         $this->screen = $screen;
@@ -23,7 +25,7 @@ final class Automap {
         $this->scale = 5;
     }
 
-    public function draw(MapData $map, Player $player, Trig $trig): void {
+    public function draw(MapData $map, Player $player, Trig $trig, Things $things): void {
         Screen $screen = $this->screen;
         int $areaEnd = $this->viewHeight * $screen->width;
         buffer<u8> $pixels = $screen->pixels;
@@ -35,11 +37,11 @@ final class Automap {
         buffer<Linedef> $lines = $map->linedefs;
         buffer<Sector> $sectors = $map->sectors;
         for ($l = 0; $l < $map->linedefCount; $l++) {
-            if ($lines[$l]->mapped === 0) {
+            if ($lines[$l]->mapped === 0 && !$player->fullMap && $this->reveal === 0) {
                 continue;
             }
             int $hidden = $lines[$l]->flags & 128;
-            if ($hidden !== 0) {
+            if ($hidden !== 0 && $this->reveal === 0) {
                 continue;
             }
             int $front = $lines[$l]->front_sector;
@@ -58,6 +60,14 @@ final class Automap {
             $this->mapLine($lines[$l]->x1, $lines[$l]->y1, $lines[$l]->x2, $lines[$l]->y2, $centerX, $centerY, $color);
         }
 
+        if ($this->reveal === 2) {
+            for ($i = 0; $i < $things->count; $i++) {
+                if ($things->mobjs[$i]->active === 0) { continue; }
+                int $x = $this->toScreenX($things->mobjs[$i]->x, $centerX);
+                int $y = $this->toScreenY($things->mobjs[$i]->y, $centerY);
+                $screen->fillRect($x - 1, $y - 1, 3, 3, $things->mobjs[$i]->health > 0 ? 176 : 112);
+            }
+        }
         // the player: an arrow pointing where they look
         int $cos = $trig->cos($player->angle);
         int $sin = $trig->sin($player->angle);

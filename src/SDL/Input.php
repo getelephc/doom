@@ -3,8 +3,29 @@
 namespace Showcases\Doom\SDL;
 
 // Keyboard state by SDL scancode: WASD or arrows to move and turn, Shift to run,
-// Space or E to use, Tab for the automap, V for vsync, ESC to quit.
+// Space or E to use, Tab for the automap, V for vsync, Esc for the menu.
 final class Input {
+    public int $mouseX = 0;
+    public bool $alwaysRun = false;
+    public int $mouseButtons = 0;
+    public function fire(ptr $keys): int {
+        if (($this->mouseButtons & 1) !== 0) { return 1; }
+        return $this->either($keys, 224, 228);
+    }
+
+    public function confirm(ptr $keys): int {
+        return $this->either($keys, 40, 44);
+    }
+
+    public function weapon(ptr $keys): int {
+        for ($slot = 1; $slot < 8; $slot++) {
+            if ($this->keyPressed($keys, 29 + $slot) !== 0) {
+                return $slot;
+            }
+        }
+        return 0;
+    }
+
     public function keyPressed(ptr $keys, int $scanCode): int {
         return ptr_read8(ptr_offset($keys, $scanCode));
     }
@@ -53,6 +74,7 @@ final class Input {
     }
 
     public function run(ptr $keys): int {
+        if ($this->alwaysRun) { return 1; }
         return $this->either($keys, 225, 229);
     }
 

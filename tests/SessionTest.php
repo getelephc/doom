@@ -46,20 +46,34 @@ final class SessionTest extends SessionCase {
         $this->assertSameString("E1M1", $session->mapName);
     }
 
-    public function testTheExitLoadsTheNextMap(): void {
+    public function testTheExitWaitsForConfirmationBeforeLoadingTheNextMap(): void {
         $session = $this->boot();
         buffer<u8> $keys = buffer_new<u8>(512);
         $session->specials->exitRequest = 1;
+        $session->runTic(new Input(), buffer_ptr($keys));
+        $this->assertSameInt(2, $session->phase);
+        $this->assertSameString("E1M1", $session->mapName);
+        for ($i = 0; $i < 35; $i++) {
+            $session->runTic(new Input(), buffer_ptr($keys));
+        }
+        $keys[40] = 1;
         $session->runTic(new Input(), buffer_ptr($keys));
         $this->assertSameString("E1M2", $session->mapName);
         $this->assertSameInt(0, $session->specials->exitRequest);
         buffer_free($keys);
     }
 
-    public function testDyingRestartsTheMap(): void {
+    public function testDyingWaitsForConfirmationBeforeRestartingTheMap(): void {
         $session = $this->boot();
         buffer<u8> $keys = buffer_new<u8>(512);
         $session->player->health = 0;
+        $session->runTic(new Input(), buffer_ptr($keys));
+        $this->assertSameInt(1, $session->phase);
+        $this->assertSameInt(0, $session->player->health);
+        for ($i = 0; $i < 35; $i++) {
+            $session->runTic(new Input(), buffer_ptr($keys));
+        }
+        $keys[40] = 1;
         $session->runTic(new Input(), buffer_ptr($keys));
         $this->assertSameString("E1M1", $session->mapName);
         $this->assertSameInt(100, $session->player->health);

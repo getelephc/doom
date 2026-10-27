@@ -15,7 +15,7 @@ use Showcases\Doom\Map\MapData;
 use Showcases\Doom\Support\Trig;
 use Showcases\Doom\Wad\Wad;
 
-// Line and sector specials of the shareware episode, following the public DOOM
+// Line and sector specials of original DOOM, following the public DOOM
 // linedef and sector type tables: doors, lifts, moving floors, stairs, switches,
 // teleporters, exits, scrolling walls and light effects. Movers change sector
 // heights a few units per tic; the renderer and collision read them live.
@@ -47,6 +47,11 @@ final class Specials {
     public buffer<int> $sectorLines;
     public int $seed;
     public int $exitRequest;
+    // 1 door, 2 switch. The session consumes this after each simulation tic.
+    public int $soundEvent = 0;
+    public Textures $textures;
+    public LineActions $actions;
+    public AdvancedSpecials $advanced;
     // the player, mirrored by the game each tic
     public int $playerX;
     public int $playerY;
@@ -63,6 +68,9 @@ final class Specials {
         $this->trig = $trig;
         $this->movers = buffer_new<Mover>(256);
         $this->moverCount = 0;
+        $this->textures = $textures;
+        $this->actions = new LineActions();
+        $this->advanced = new AdvancedSpecials();
         $this->lights = buffer_new<LightEffect>(256);
         $this->lightCount = 0;
         $this->buttons = buffer_new<Button>(16);
@@ -89,6 +97,10 @@ final class Specials {
 
     // Buffers are not reclaimed on their own: the game calls this when it leaves the map.
     public function release(): void {
+        buffer<int> $trigger = $this->actions->trigger; buffer_free($trigger);
+        buffer<int> $repeat = $this->actions->repeat; buffer_free($repeat);
+        buffer<int> $action = $this->actions->action; buffer_free($action);
+        buffer<int> $speed = $this->actions->speed; buffer_free($speed);
         buffer<Mover> $movers = $this->movers;
         buffer_free($movers);
         buffer<LightEffect> $lights = $this->lights;
@@ -178,7 +190,7 @@ final class Specials {
         if ($front === $sector) {
             return $back;
         }
-        return $front;
+        return $back === $sector ? $front : -1;
     }
 
     public function lowestCeilingAround(int $sector): int {
@@ -416,6 +428,9 @@ final class Specials {
             $slot = $this->moverCount;
             $this->moverCount++;
         }
+        $this->movers[$slot]->cadence = 1; $this->movers[$slot]->elapsed = 0;
+        $this->movers[$slot]->crush = 0; $this->movers[$slot]->changeSpecial = -1;
+        $this->movers[$slot]->nextDirection = 1;
         $this->movers[$slot]->active = 1;
         $this->movers[$slot]->sector = $sector;
         $this->movers[$slot]->kind = $kind;
@@ -434,6 +449,7 @@ final class Specials {
 
     public function finishMover(int $slot): void {
         int $sector = $this->movers[$slot]->sector;
+        if ($this->movers[$slot]->kind !== $this->kindDoor && $this->soundEvent === 0) { $this->soundEvent = 5; }
         $this->movers[$slot]->active = 0;
         $this->map->sectors[$sector]->mover = 0;
     }
@@ -443,6 +459,7 @@ final class Specials {
         if ($slot < 0) {
             return;
         }
+        $this->soundEvent = 1;
         int $top = $this->lowestCeilingAround($sector) - 4;
         $this->movers[$slot]->type = $type;
         $this->movers[$slot]->speed = 2;
@@ -458,78 +475,9 @@ final class Specials {
         }
     }
 
-    // Doors, lifts and floors on every sector with the line's tag that is not already moving.
-    public function tagged(int $line, int $action): bool {
-        int $tag = $this->map->linedefs[$line]->tag;
-        if ($tag === 0) {
-            return false;
-        }
-        bool $started = false;
-        for ($s = 0; $s < $this->map->sectorCount; $s++) {
-            if ($this->map->sectors[$s]->tag !== $tag) {
-                continue;
-            }
-            if ($action === 35) {
-                $this->map->sectors[$s]->light_level = 35;
-                $started = true;
-                continue;
-            }
-            if ($this->map->sectors[$s]->mover !== 0) {
-                continue;
-            }
-            $started = true;
-            $this->startAction($line, $s, $action);
-        }
-        return $started;
-    }
-
+    // Direct action entry point retained for callers that already know the sector.
     public function startAction(int $line, int $sector, int $action): void {
-        int $floor = $this->map->sectors[$sector]->floor_height;
-        if ($action === 1) {
-            $this->startDoor($sector, $this->doorNormal);
-        } else if ($action === 2) {
-            $this->startDoor($sector, $this->doorOpen);
-        } else if ($action === 3) {
-            $this->startDoor($sector, $this->doorClose);
-        } else if ($action === 4) {
-            $this->startDoor($sector, $this->doorCloseThenOpen);
-        } else if ($action === 10) {
-            // lift: down to the lowest neighboring floor, wait 3 seconds, back up
-            int $slot = $this->newMover($sector, $this->kindLift);
-            if ($slot >= 0) {
-                $this->movers[$slot]->bottom = $this->lowestFloorAround($sector);
-                $this->movers[$slot]->top = $floor;
-                $this->movers[$slot]->speed = 4;
-                $this->movers[$slot]->wait = 105;
-                $this->movers[$slot]->direction = -1;
-            }
-        } else if ($action === 20) {
-            $this->startFloor($sector, $this->lowestFloorAround($sector), 1, -1);
-        } else if ($action === 21) {
-            int $target = $this->highestFloorAround($sector);
-            if ($target !== $floor) {
-                int $raised = $target + 8;
-                $target = $raised;
-            }
-            $this->startFloor($sector, $target, 4, -1);
-        } else if ($action === 22) {
-            int $target = $this->lowestCeilingAround($sector);
-            if ($target > $this->map->sectors[$sector]->ceiling_height) {
-                $target = $this->map->sectors[$sector]->ceiling_height;
-            }
-            $this->startFloor($sector, $target, 1, -1);
-        } else if ($action === 23) {
-            $this->startFloor($sector, $this->nextHighestFloor($sector), 1, -1);
-        } else if ($action === 24) {
-            // raise to the next floor and take the floor texture of the line's front sector
-            int $slot = $this->startFloor($sector, $this->nextHighestFloor($sector), 1, -1);
-            int $front = $this->map->linedefs[$line]->front_sector;
-            if ($slot >= 0 && $front >= 0) {
-                $this->movers[$slot]->texture = $this->map->sectors[$front]->floor_pic;
-            }
-        } else if ($action === 30) {
-            $this->buildStairs($sector);
-        }
+        $this->advanced->start($this, $line, $sector, $action, $action === 10 || $action === 21 ? 4 : ($action <= 4 ? 2 : 1));
     }
 
     public function startFloor(int $sector, int $target, int $speed, int $texture): int {
@@ -549,12 +497,14 @@ final class Specials {
     }
 
     // Raise the tagged sector by 8, then each following step sector of the same flat by 8 more.
-    public function buildStairs(int $sector): void {
+    public function buildStairs(int $sector, bool $turbo = false): void {
         buffer<Linedef> $lines = $this->map->linedefs;
         int $current = $sector;
         int $texture = $this->map->sectors[$sector]->floor_pic;
-        int $height = $this->map->sectors[$sector]->floor_height + 8;
-        $this->startFloor($current, $height, 1, -1);
+        int $stepHeight = $turbo ? 16 : 8;
+        int $height = $this->map->sectors[$sector]->floor_height + $stepHeight;
+        int $slot = $this->startFloor($current, $height, $turbo ? 4 : 1, -1);
+        if ($slot >= 0) { $this->movers[$slot]->cadence = $turbo ? 1 : 4; $this->movers[$slot]->crush = $turbo ? 1 : 0; }
         for ($guard = 0; $guard < 64; $guard++) {
             int $next = -1;
             int $start = $this->sectorLineStart[$current];
@@ -574,10 +524,11 @@ final class Specials {
             if ($next < 0) {
                 return;
             }
-            int $raised = $height + 8;
+            int $raised = $height + $stepHeight;
             $height = $raised;
             $current = $next;
-            $this->startFloor($current, $height, 1, -1);
+            int $slot = $this->startFloor($current, $height, $turbo ? 4 : 1, -1);
+            if ($slot >= 0) { $this->movers[$slot]->cadence = $turbo ? 1 : 4; $this->movers[$slot]->crush = $turbo ? 1 : 0; }
         }
     }
 
@@ -585,20 +536,22 @@ final class Specials {
         buffer<Mover> $movers = $this->movers;
         buffer<Sector> $sectors = $this->map->sectors;
         for ($i = 0; $i < $this->moverCount; $i++) {
-            if ($movers[$i]->active === 0) {
-                continue;
-            }
+            if ($movers[$i]->active !== 1) { continue; }
+            $movers[$i]->elapsed++;
+            if ($movers[$i]->elapsed < $movers[$i]->cadence) { continue; }
+            $movers[$i]->elapsed = 0;
             int $sector = $movers[$i]->sector;
             int $kind = $movers[$i]->kind;
             int $direction = $movers[$i]->direction;
             int $speed = $movers[$i]->speed;
+            if ($direction !== 0 && $kind !== $this->kindDoor && $this->soundEvent === 0 && ($this->seed & 7) === 0) { $this->soundEvent = 4; }
             if ($direction === 0) {
                 $movers[$i]->countdown--;
                 if ($movers[$i]->countdown > 0) {
                     continue;
                 }
                 if ($kind === $this->kindLift) {
-                    $movers[$i]->direction = 1;
+                    $movers[$i]->direction = $movers[$i]->nextDirection;
                 } else if ($movers[$i]->type === $this->doorCloseThenOpen) {
                     $movers[$i]->direction = 1;
                 } else {
@@ -607,6 +560,7 @@ final class Specials {
                 continue;
             }
 
+            if ($kind === 4) { $this->advanced->tickCeiling($this, $i); continue; }
             if ($kind === $this->kindDoor) {
                 int $ceiling = $sectors[$sector]->ceiling_height;
                 int $floor = $sectors[$sector]->floor_height;
@@ -626,11 +580,11 @@ final class Specials {
                     }
                 } else {
                     // a closing door goes back up rather than crush the player
-                    if ($this->playerInSector($sector) && $movers[$i]->type !== $this->doorClose) {
-                        $movers[$i]->direction = 1;
+                    int $lowered = $ceiling - $speed;
+                    if ($this->advanced->blocked($this, $sector, $floor, $lowered)) {
+                        if ($movers[$i]->type !== $this->doorClose) { $movers[$i]->direction = 1; }
                         continue;
                     }
-                    int $lowered = $ceiling - $speed;
                     if ($lowered <= $floor) {
                         $sectors[$sector]->ceiling_height = $floor;
                         if ($movers[$i]->type === $this->doorCloseThenOpen) {
@@ -656,14 +610,20 @@ final class Specials {
                         $sectors[$sector]->floor_height = $movers[$i]->bottom;
                         $movers[$i]->direction = 0;
                         $movers[$i]->countdown = $movers[$i]->wait;
+                        $movers[$i]->nextDirection = 1;
                     } else {
                         $sectors[$sector]->floor_height = $lowered;
                     }
                 } else {
+                    if ($this->advanced->blocked($this, $sector, min($movers[$i]->top, $floor + $speed), $sectors[$sector]->ceiling_height)) {
+                        $movers[$i]->direction = -1;
+                        continue;
+                    }
                     int $raised = $floor + $speed;
                     if ($raised >= $movers[$i]->top) {
                         $sectors[$sector]->floor_height = $movers[$i]->top;
-                        $this->finishMover($i);
+                        if ($movers[$i]->type === 1) { $movers[$i]->direction = 0; $movers[$i]->countdown = $movers[$i]->wait; $movers[$i]->nextDirection = -1; }
+                        else { $this->finishMover($i); }
                     } else {
                         $sectors[$sector]->floor_height = $raised;
                     }
@@ -677,6 +637,7 @@ final class Specials {
             int $target = $movers[$i]->top;
             int $step = $speed * $direction;
             int $moved = $floor + $step;
+            if ($direction > 0 && $movers[$i]->crush === 0 && $this->advanced->blocked($this, $sector, min($target, $moved), $sectors[$sector]->ceiling_height)) { continue; }
             bool $arrived = ($direction > 0 && $moved >= $target) || ($direction < 0 && $moved <= $target);
             if (!$arrived) {
                 $sectors[$sector]->floor_height = $moved;
@@ -687,7 +648,7 @@ final class Specials {
             $this->settleThings($sector);
             if ($movers[$i]->texture >= 0) {
                 $sectors[$sector]->floor_pic = $movers[$i]->texture;
-                $sectors[$sector]->special = 0;
+                $sectors[$sector]->special = max(0, $movers[$i]->changeSpecial);
             }
             $this->finishMover($i);
         }
@@ -701,10 +662,12 @@ final class Specials {
         int $floor = $this->map->sectors[$sector]->floor_height;
         int $ceiling = $this->map->sectors[$sector]->ceiling_height;
         for ($i = 0; $i < $things->count; $i++) {
-            if ($mobjs[$i]->sector !== $sector) {
+            if ($mobjs[$i]->active === 0 || $mobjs[$i]->sector !== $sector || $mobjs[$i]->state === 6 || $mobjs[$i]->state === 7) {
                 continue;
             }
-            if ($hanging[$mobjs[$i]->kind] !== 0) {
+            if ($mobjs[$i]->type === 3005 || $mobjs[$i]->type === 3006) {
+                $mobjs[$i]->z = max($floor, min($ceiling - $mobjs[$i]->height, $mobjs[$i]->z));
+            } else if ($hanging[$mobjs[$i]->kind] !== 0) {
                 int $hungFrom = $ceiling - $mobjs[$i]->height;
                 $mobjs[$i]->z = $hungFrom;
             } else {
@@ -721,6 +684,7 @@ final class Specials {
 
     // Shows a switch's other face; repeatable switches flip back after a second.
     public function pressSwitch(int $line, bool $repeatable): void {
+        $this->soundEvent = 2;
         int $side = $this->map->linedefs[$line]->right_side;
         if ($side < 0) {
             return;
@@ -782,84 +746,11 @@ final class Specials {
 
     // ---- triggers
 
-    // The use key on a line's front side. Returns true when something happened.
     public function useLine(int $line): bool {
-        if ($this->collision->pointSide($line, $this->playerX, $this->playerY) >= 0) {
-            return false;
-        }
-        buffer<Linedef> $lines = $this->map->linedefs;
-        int $special = $lines[$line]->special;
-        if ($special === 1 || $special === 26 || $special === 27 || $special === 28) {
-            return $this->manualDoor($line, $this->doorNormal, $special);
-        }
-        if ($special === 31 || $special === 32 || $special === 33 || $special === 34) {
-            bool $opened = $this->manualDoor($line, $this->doorOpen, $special);
-            if ($opened) {
-                $lines[$line]->special = 0;
-            }
-            return $opened;
-        }
-        if ($special === 11 || $special === 51) {
-            $this->pressSwitch($line, false);
-            $this->exitRequest = 1;
-            if ($special === 51) {
-                $this->exitRequest = 2;
-            }
-            return true;
-        }
-        // switches: [special, action, repeatable]
-        int $action = 0;
-        bool $repeatable = false;
-        if ($special === 7) {
-            $action = 30;
-        } else if ($special === 9) {
-            $action = -1;
-        } else if ($special === 18) {
-            $action = 23;
-        } else if ($special === 20) {
-            $action = 24;
-        } else if ($special === 21) {
-            $action = 10;
-        } else if ($special === 23) {
-            $action = 20;
-        } else if ($special === 29) {
-            $action = 1;
-        } else if ($special === 50) {
-            $action = 3;
-        } else if ($special === 103) {
-            $action = 2;
-        } else if ($special === 42) {
-            $action = 3;
-            $repeatable = true;
-        } else if ($special === 46 || $special === 61) {
-            $action = 2;
-            $repeatable = true;
-        } else if ($special === 62) {
-            $action = 10;
-            $repeatable = true;
-        } else if ($special === 63) {
-            $action = 1;
-            $repeatable = true;
-        } else if ($special === 70) {
-            $action = 21;
-            $repeatable = true;
-        }
-        if ($action === 0) {
-            return false;
-        }
-        bool $started = true;
-        if ($action > 0) {
-            $started = $this->tagged($line, $action);
-        }
-        if (!$started) {
-            return false;
-        }
-        $this->pressSwitch($line, $repeatable);
-        if (!$repeatable) {
-            $lines[$line]->special = 0;
-        }
-        return true;
+        return $this->actions->run($this, $line, 1, $this->collision->pointSide($line, $this->playerX, $this->playerY));
     }
+
+    public function shootLine(int $line): bool { return $this->actions->run($this, $line, 3, -1); }
 
     public function manualDoor(int $line, int $type, int $special): bool {
         if (!$this->hasKeyFor($special)) {
@@ -890,11 +781,11 @@ final class Specials {
     // Keyed doors: 26/32 blue, 27/34 yellow, 28/33 red. Keys are bits 1, 2, 4.
     public function hasKeyFor(int $special): bool {
         int $needed = 0;
-        if ($special === 26 || $special === 32) {
+        if ($special === 26 || $special === 32 || $special === 99 || $special === 133) {
             $needed = 1;
-        } else if ($special === 27 || $special === 34) {
+        } else if ($special === 27 || $special === 34 || $special === 136 || $special === 137) {
             $needed = 2;
-        } else if ($special === 28 || $special === 33) {
+        } else if ($special === 28 || $special === 33 || $special === 134 || $special === 135) {
             $needed = 4;
         }
         if ($needed === 0) {
@@ -905,96 +796,48 @@ final class Specials {
     }
 
     // Walking over a line, from its front ($fromSide < 0) or back.
-    public function crossLine(int $line, int $fromSide): void {
-        buffer<Linedef> $lines = $this->map->linedefs;
-        int $special = $lines[$line]->special;
-        int $action = 0;
-        bool $repeatable = false;
-        if ($special === 2) {
-            $action = 2;
-        } else if ($special === 3) {
-            $action = 3;
-        } else if ($special === 4) {
-            $action = 1;
-        } else if ($special === 5) {
-            $action = 22;
-        } else if ($special === 8) {
-            $action = 30;
-        } else if ($special === 10) {
-            $action = 10;
-        } else if ($special === 16) {
-            $action = 4;
-        } else if ($special === 22) {
-            $action = 24;
-        } else if ($special === 35) {
-            $action = 35;
-        } else if ($special === 36) {
-            $action = 21;
-        } else if ($special === 38) {
-            $action = 20;
-        } else if ($special === 76) {
-            $action = 4;
-            $repeatable = true;
-        } else if ($special === 82) {
-            $action = 20;
-            $repeatable = true;
-        } else if ($special === 86) {
-            $action = 2;
-            $repeatable = true;
-        } else if ($special === 88) {
-            $action = 10;
-            $repeatable = true;
-        } else if ($special === 90) {
-            $action = 1;
-            $repeatable = true;
-        } else if ($special === 91) {
-            $action = 22;
-            $repeatable = true;
-        } else if ($special === 98) {
-            $action = 21;
-            $repeatable = true;
-        } else if ($special === 39 || $special === 97) {
-            if ($fromSide < 0) {
-                $this->teleport($line);
-            }
-            if ($special === 39) {
-                $lines[$line]->special = 0;
-            }
-            return;
-        } else if ($special === 52 || $special === 124) {
-            $this->exitRequest = 1;
-            if ($special === 124) {
-                $this->exitRequest = 2;
-            }
-            return;
+    public function crossLine(int $line, int $fromSide): void { $this->actions->run($this, $line, 2, $fromSide); }
+
+    public function monsterCross(int $line, int $side, int $actor): void {
+        int $n = $this->map->linedefs[$line]->special;
+        if ($n === 4 || $n === 10 || $n === 88) { $this->actions->run($this, $line, 2, $side); return; }
+        if ($side >= 0 || ($n !== 39 && $n !== 97 && $n !== 125 && $n !== 126)) { return; }
+        int $destination = $this->teleportTarget($line);
+        if ($destination < 0) { return; }
+        int $x = $this->map->things[$destination]->x; int $y = $this->map->things[$destination]->y;
+        int $sector = $this->collision->sectorAt($x, $y);
+        int $z = $this->map->sectors[$sector]->floor_height;
+        int $radius = $this->things->mobjs[$actor]->radius;
+        if (abs($this->playerX - $x) < $radius + 16 && abs($this->playerY - $y) < $radius + 16) { return; }
+        if (!$this->collision->checkActorPosition($x, $y, $z, $actor, $radius, $this->things->mobjs[$actor]->height)) { return; }
+        $this->things->mobjs[$actor]->x = $x; $this->things->mobjs[$actor]->y = $y; $this->things->mobjs[$actor]->z = $z;
+        $this->things->mobjs[$actor]->sector = $sector;
+        $this->things->mobjs[$actor]->angle = $this->trig->fromDegrees($this->map->things[$destination]->angle);
+        $this->things->mobjs[$actor]->cooldown = 18; $this->things->mobjs[$actor]->state = 1;
+        if ($n === 39 || $n === 125) { $this->map->linedefs[$line]->special = 0; }
+        $this->soundEvent = 3;
+    }
+
+    public function teleportTarget(int $line): int {
+        int $tag = $this->map->linedefs[$line]->tag;
+        int $best = -1; int $bestSector = 2147483647;
+        for ($i = 0; $i < $this->map->thingCount; $i++) {
+            if ($this->map->things[$i]->type !== 14) { continue; }
+            int $sector = $this->collision->sectorAt($this->map->things[$i]->x, $this->map->things[$i]->y);
+            if ($sector >= 0 && $sector < $bestSector && $this->map->sectors[$sector]->tag === $tag) { $best = $i; $bestSector = $sector; }
         }
-        if ($action === 0) {
-            return;
-        }
-        $this->tagged($line, $action);
-        if (!$repeatable) {
-            $lines[$line]->special = 0;
-        }
+        return $best;
     }
 
     // Moves the player onto the teleport target (thing 14) in a sector tagged like the line.
     public function teleport(int $line): void {
-        int $tag = $this->map->linedefs[$line]->tag;
-        buffer<Thing> $things = $this->map->things;
-        for ($i = 0; $i < $this->map->thingCount; $i++) {
-            if ($things[$i]->type !== 14) {
-                continue;
-            }
-            int $sector = $this->collision->sectorAt($things[$i]->x, $things[$i]->y);
-            if ($sector < 0 || $this->map->sectors[$sector]->tag !== $tag) {
-                continue;
-            }
-            $this->teleportPending = true;
-            $this->teleportX = $things[$i]->x;
-            $this->teleportY = $things[$i]->y;
-            $this->teleportAngle = $this->trig->fromDegrees($things[$i]->angle);
-            return;
-        }
+        int $target = $this->teleportTarget($line);
+        if ($target < 0) { return; }
+        $this->teleportPending = true;
+        $this->teleportX = $this->map->things[$target]->x;
+        $this->teleportY = $this->map->things[$target]->y;
+        $this->teleportAngle = $this->trig->fromDegrees($this->map->things[$target]->angle);
+        $this->soundEvent = 3;
     }
 
     public function tick(): void {

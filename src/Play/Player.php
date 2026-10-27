@@ -31,9 +31,34 @@ final class Player {
     public int $bullets;
     public int $shells;
     public int $weapons;
+    public int $weapon;
+    public int $weaponAge;
+    public int $weaponCooldown;
     public int $damageCount;
     public int $bonusCount;
     public string $message;
+    public Inventory $inventory;
+    public int $skill = 3;
+    public int $rockets;
+    public int $cells;
+    public int $maxBullets;
+    public int $maxShells;
+    public int $maxRockets;
+    public int $maxCells;
+    public bool $backpack;
+    public bool $godMode;
+    public bool $noclip;
+    public bool $berserk;
+    public bool $fullMap;
+    public int $invulnerable;
+    public int $invisible;
+    public int $suit;
+    public int $lightAmp;
+    public int $availableWeapons;
+    public int $pendingWeapon;
+    public int $selectionHeld;
+    public int $sawClock;
+    public bool $fireHeld;
 
     public function __construct() {
         $this->x = 0;
@@ -52,6 +77,8 @@ final class Player {
         $this->useHeld = false;
         $this->keys = 0;
         $this->message = "";
+        $this->inventory = new Inventory();
+        $this->availableWeapons = 6;
         $this->reset();
     }
 
@@ -63,7 +90,29 @@ final class Player {
         $this->armorType = 0;
         $this->bullets = 50;
         $this->shells = 0;
+        $this->rockets = 0;
+        $this->cells = 0;
+        $this->maxBullets = 200;
+        $this->maxShells = 50;
+        $this->maxRockets = 50;
+        $this->maxCells = 300;
+        $this->backpack = false;
+        $this->godMode = false;
+        $this->noclip = false;
+        $this->berserk = false;
+        $this->fullMap = false;
+        $this->invulnerable = 0;
+        $this->invisible = 0;
+        $this->suit = 0;
+        $this->lightAmp = 0;
         $this->weapons = 6;
+        $this->weapon = 2;
+        $this->weaponAge = 0;
+        $this->weaponCooldown = 0;
+        $this->pendingWeapon = 0;
+        $this->selectionHeld = 0;
+        $this->sawClock = 0;
+        $this->fireHeld = false;
         $this->damageCount = 0;
         $this->bonusCount = 0;
     }
@@ -87,11 +136,18 @@ final class Player {
             int $palette = 8 + $gold;
             return $palette;
         }
+        if ($this->suit > 128 || ($this->suit & 8) !== 0) {
+            return 13;
+        }
         return 0;
     }
 
     // Damage with armor soaking a third (green) or half (blue) of it.
-    public function damage(int $amount): void {
+    public function damage(int $amount, bool $force = false): void {
+        if (!$force && ($this->godMode || $this->invulnerable > 0)) {
+            return;
+        }
+        if ($this->skill === 1) { $amount = max(1, intdiv($amount, 2)); }
         int $absorbed = 0;
         if ($this->armorType === 1) {
             $absorbed = intdiv($amount, 3);
@@ -116,98 +172,9 @@ final class Player {
         }
     }
 
-    // Applies an item; false when the player has no use for it yet.
-    public function pickup(int $type): bool {
-        if ($type === 2011 || $type === 2012) {
-            if ($this->health >= 100) {
-                return false;
-            }
-            int $amount = 10;
-            $this->message = "Stimpack";
-            if ($type === 2012) {
-                $amount = 25;
-                $this->message = "Medikit";
-            }
-            $this->health = $this->capped($this->health, $amount, 100);
-        } else if ($type === 2014) {
-            $this->health = $this->capped($this->health, 1, 200);
-            $this->message = "Health bonus";
-        } else if ($type === 2013) {
-            $this->health = $this->capped($this->health, 100, 200);
-            $this->message = "Soulsphere";
-        } else if ($type === 2015) {
-            $this->armor = $this->capped($this->armor, 1, 200);
-            if ($this->armorType === 0) {
-                $this->armorType = 1;
-            }
-            $this->message = "Armor bonus";
-        } else if ($type === 2018 || $type === 2019) {
-            int $level = 100;
-            int $kind = 1;
-            $this->message = "Green armor";
-            if ($type === 2019) {
-                $level = 200;
-                $kind = 2;
-                $this->message = "Blue armor";
-            }
-            if ($this->armor >= $level) {
-                return false;
-            }
-            $this->armor = $level;
-            $this->armorType = $kind;
-        } else if ($type === 2007 || $type === 2048 || $type === 2002) {
-            if ($this->bullets >= 200) {
-                return false;
-            }
-            int $amount = 10;
-            $this->message = "Clip";
-            if ($type === 2048) {
-                $amount = 50;
-                $this->message = "Box of bullets";
-            } else if ($type === 2002) {
-                $amount = 20;
-                $this->message = "Chaingun";
-                int $owned = $this->weapons | 16;
-                $this->weapons = $owned;
-            }
-            $this->bullets = $this->capped($this->bullets, $amount, 200);
-        } else if ($type === 2008 || $type === 2049 || $type === 2001) {
-            int $amount = 4;
-            $this->message = "Shells";
-            if ($type === 2049) {
-                $amount = 20;
-                $this->message = "Box of shells";
-            } else if ($type === 2001) {
-                $amount = 8;
-                $this->message = "Shotgun";
-                int $owned = $this->weapons | 8;
-                $this->weapons = $owned;
-            }
-            if ($this->shells >= 50 && $type !== 2001) {
-                return false;
-            }
-            $this->shells = $this->capped($this->shells, $amount, 50);
-        } else if ($type === 5 || $type === 40) {
-            int $owned = $this->keys | 1;
-            $this->keys = $owned;
-            $this->message = "Blue key";
-        } else if ($type === 6 || $type === 39) {
-            int $owned = $this->keys | 2;
-            $this->keys = $owned;
-            $this->message = "Yellow key";
-        } else if ($type === 13 || $type === 38) {
-            int $owned = $this->keys | 4;
-            $this->keys = $owned;
-            $this->message = "Red key";
-        } else if ($type === 8) {
-            $this->bullets = $this->capped($this->bullets, 10, 200);
-            $this->shells = $this->capped($this->shells, 4, 50);
-            $this->message = "Backpack";
-        } else {
-            return false;
-        }
-        $this->bonusCount = 6;
-        return true;
+    // Inventory rules are shared with ordinary pickups and cheat grants.
+    public function pickup(int $type, bool $dropped = false): bool {
+        return $this->inventory->pickup($this, $type, $dropped);
     }
 
     public function capped(int $value, int $amount, int $limit): int {
@@ -244,6 +211,10 @@ final class Player {
     }
 
     public function tick(Input $input, ptr $keys, Collision $collision, Specials $specials, Trig $trig, int $levelTime): void {
+        $this->invulnerable = max(0, $this->invulnerable - 1);
+        $this->invisible = max(0, $this->invisible - 1);
+        $this->suit = max(0, $this->suit - 1);
+        $this->lightAmp = max(0, $this->lightAmp - 1);
         bool $run = $input->run($keys) !== 0;
         bool $left = $input->turnLeft($keys) !== 0;
         bool $right = $input->turnRight($keys) !== 0;
@@ -317,11 +288,17 @@ final class Player {
         int $everyThirtyTwo = $levelTime & 31;
         if ($sector >= 0 && $this->z === $floorFixed && $everyThirtyTwo === 0) {
             int $special = $collision->map->sectors[$sector]->special;
-            if ($special === 7) {
+            if ($special === 11) {
+                $this->godMode = false;
+                $this->invulnerable = 0;
+                $this->damage(20);
+            } else if ($this->suit > 0) {
+                // The radiation suit protects ordinary hazardous floors.
+            } else if ($special === 7) {
                 $this->damage(5);
             } else if ($special === 5) {
                 $this->damage(10);
-            } else if ($special === 4 || $special === 11 || $special === 16) {
+            } else if ($special === 4 || $special === 16) {
                 $this->damage(20);
             }
         }
@@ -422,6 +399,11 @@ final class Player {
         int $oldY = $this->unitY();
         int $newX = $targetX >> 16;
         int $newY = $targetY >> 16;
+        if ($this->noclip) {
+            $this->x = $targetX;
+            $this->y = $targetY;
+            return true;
+        }
         if (!$collision->checkPosition($newX, $newY, $this->unitZ())) {
             return false;
         }
@@ -443,6 +425,15 @@ final class Player {
 
     // Floors follow moving sectors; walking off a ledge falls with DOOM's gravity of 1 unit/tic².
     public function moveZ(Collision $collision): void {
+        if ($this->noclip) {
+            int $sector = $collision->sectorAt($this->unitX(), $this->unitY());
+            if ($sector >= 0) {
+                $this->floorZ = $collision->map->sectors[$sector]->floor_height;
+                $this->ceilingZ = max($this->floorZ + 56, $collision->map->sectors[$sector]->ceiling_height);
+                $this->z = $this->floorZ << 16;
+            }
+            return;
+        }
         $collision->checkPosition($this->unitX(), $this->unitY(), $this->unitZ());
         int $floorFixed = $collision->floorZ << 16;
         int $ceilingFixed = $collision->ceilingZ << 16;

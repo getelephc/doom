@@ -11,6 +11,7 @@ final class Config {
     public string $wadPath;
     public string $startupMap;
     public int $tickRate;
+    public int $skill = 3;
     public bool $vsync;
     public int $bootDurationMs;
     // load and map messages on stdout

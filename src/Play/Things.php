@@ -10,18 +10,21 @@ use Showcases\Doom\Map\MapData;
 use Showcases\Doom\Support\Trig;
 use Showcases\Doom\Wad\Wad;
 
-// The map objects spawned for skill 3 ("Hurt me plenty") in single player.
+// Single-player map objects filtered by the selected difficulty.
 final class Things {
     public int $count;
     public buffer<Mobj> $mobjs;
     public buffer<int> $frameDefinition;
     public ThingTypes $types;
+    public int $countedTaken;
+    public int $skill = 3;
 
     public function __construct() {
         $this->count = 0;
         $this->mobjs = buffer_new<Mobj>(1);
         $this->frameDefinition = buffer_new<int>(4);
         $this->types = new ThingTypes();
+        $this->countedTaken = 0;
     }
 
     public function spawn(MapData $map, Sprites $sprites, Wad $wad, Trig $trig, BspWalker $locator): void {
@@ -30,7 +33,7 @@ final class Things {
         buffer_free($previous);
         buffer<int> $previousDefinitions = $this->frameDefinition;
         buffer_free($previousDefinitions);
-        int $capacity = $map->thingCount + 1;
+        int $capacity = $map->thingCount * 2 + 64;
         $this->mobjs = buffer_new<Mobj>($capacity);
         $this->frameDefinition = buffer_new<int>($capacity * 4);
         buffer<Mobj> $mobjs = $this->mobjs;
@@ -38,7 +41,8 @@ final class Things {
         int $count = 0;
         for ($i = 0; $i < $map->thingCount; $i++) {
             int $flags = $things[$i]->flags;
-            int $mediumSkill = $flags & 2;
+            int $skillBit = $this->skill <= 2 ? 1 : ($this->skill === 3 ? 2 : 4);
+            int $mediumSkill = $flags & $skillBit;
             int $multiplayer = $flags & 16;
             if ($mediumSkill === 0 || $multiplayer !== 0) {
                 continue;
@@ -95,6 +99,17 @@ final class Things {
             $mobjs[$count]->radius = $this->types->radius[$kind];
             $mobjs[$count]->height = $this->types->height[$kind];
             $mobjs[$count]->solid = $this->types->solid[$kind];
+            $mobjs[$count]->health = 0;
+            $mobjs[$count]->state = 0;
+            $mobjs[$count]->stateTics = 0;
+            $mobjs[$count]->stateAge = 0;
+            $mobjs[$count]->target = -1;
+            $mobjs[$count]->cooldown = 0;
+            $mobjs[$count]->spawnFlags = $flags;
+            $mobjs[$count]->spawnX = $x;
+            $mobjs[$count]->spawnY = $y;
+            $mobjs[$count]->spawnZ = $z;
+            $mobjs[$count]->spawnAngle = $mobjs[$count]->angle;
             $count++;
         }
         $this->count = $count;
@@ -104,6 +119,7 @@ final class Things {
     // an item counts only from 8 units below the player's feet up to the top of the
     // player's 56-unit body, so nothing is collected from a ledge overhead or below.
     public function touch(Player $player): int {
+        $this->countedTaken = 0;
         buffer<Mobj> $mobjs = $this->mobjs;
         int $x = $player->unitX();
         int $y = $player->unitY();
@@ -123,7 +139,11 @@ final class Things {
             if ($dz > 56 || $dz < -8) {
                 continue;
             }
-            if ($player->pickup($mobjs[$i]->type)) {
+            bool $dropped = ($mobjs[$i]->spawnFlags & 256) !== 0;
+            if ($player->pickup($mobjs[$i]->type, $dropped)) {
+                if ($this->types->countedItem($mobjs[$i]->type)) {
+                    $this->countedTaken++;
+                }
                 $mobjs[$i]->active = 0;
                 $taken++;
             }
@@ -133,6 +153,9 @@ final class Things {
 
     // Sprite frame definition shown for object $index at this tic.
     public function definitionAt(int $index, int $tic): int {
+        if ($this->mobjs[$index]->health !== 0 || $this->mobjs[$index]->state !== 0) {
+            return $this->mobjs[$index]->first_definition;
+        }
         int $frames = $this->mobjs[$index]->frames;
         int $tics = $this->mobjs[$index]->tics;
         int $base = $index * 4;
@@ -144,5 +167,20 @@ final class Things {
         int $frame = $shifted % $frames;
         int $slot = $base + $frame;
         return $this->frameDefinition[$slot];
+    }
+
+    // Reuse consumed pickups and expired projectiles before extending the live range.
+    public function freeSlot(): int {
+        for ($i = 0; $i < $this->count; $i++) {
+            if ($this->mobjs[$i]->active === 0) {
+                return $i;
+            }
+        }
+        if ($this->count >= buffer_len($this->mobjs)) {
+            return -1;
+        }
+        int $slot = $this->count;
+        $this->count++;
+        return $slot;
     }
 }

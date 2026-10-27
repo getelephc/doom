@@ -96,7 +96,12 @@ final class Hud {
         int $top = $this->top;
         $screen->drawPatch($this->wad, $this->statusBar, 0, $top);
         int $numbersY = $top + 3;
-        $this->bigNumber($player->bullets, 44, $numbersY);
+        if ($player->weapon === 2) {
+            $this->bigNumber($player->bullets, 44, $numbersY);
+        } else if ($player->weapon === 3) { $this->bigNumber($player->shells, 44, $numbersY); }
+        else if ($player->weapon === 4) { $this->bigNumber($player->bullets, 44, $numbersY); }
+        else if ($player->weapon === 5) { $this->bigNumber($player->rockets, 44, $numbersY); }
+        else if ($player->weapon === 6 || $player->weapon === 7) { $this->bigNumber($player->cells, 44, $numbersY); }
         $this->bigNumber($player->health, 90, $numbersY);
         $screen->drawPatch($this->wad, $this->percent, 90, $numbersY);
         $this->bigNumber($player->armor, 221, $numbersY);
@@ -143,19 +148,18 @@ final class Hud {
         int $rocketsY = $top + 17;
         int $cellsY = $top + 23;
         $this->smallNumber($player->bullets, 288, $bulletsY);
-        $this->smallNumber(200, 314, $bulletsY);
+        $this->smallNumber($player->maxBullets, 314, $bulletsY);
         $this->smallNumber($player->shells, 288, $shellsY);
-        $this->smallNumber(50, 314, $shellsY);
-        $this->smallNumber(0, 288, $rocketsY);
-        $this->smallNumber(50, 314, $rocketsY);
-        $this->smallNumber(0, 288, $cellsY);
-        $this->smallNumber(300, 314, $cellsY);
+        $this->smallNumber($player->maxShells, 314, $shellsY);
+        $this->smallNumber($player->rockets, 288, $rocketsY);
+        $this->smallNumber($player->maxRockets, 314, $rocketsY);
+        $this->smallNumber($player->cells, 288, $cellsY);
+        $this->smallNumber($player->maxCells, 314, $cellsY);
     }
 
     public function faceLump(Player $player): int {
-        if ($player->health <= 0) {
-            return $this->faceDead;
-        }
+        if ($player->health <= 0) { return $this->faceDead; }
+        if ($player->godMode || $player->invulnerable > 0) { return $this->wad->find("STFGOD0"); }
         int $health = $player->health;
         if ($health > 100) {
             $health = 100;

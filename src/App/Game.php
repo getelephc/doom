@@ -51,7 +51,7 @@ final class Game {
         $this->state = GameState::Running;
         if (!$this->audio->boot()) { echo "Audio unavailable: " . $this->sdl->lastError() . "\n"; }
         echo "DOOM showcase running\n";
-        echo "WASD/arrows move, Shift runs, Space/E uses, Tab shows the map, V toggles vsync, ESC quits\n";
+        echo "WASD/arrows move, Ctrl fires, 1-7 select weapons, Shift runs, Space/E uses, Enter continues/restarts, Tab map, V vsync, Esc quits\n";
 
         Session $session = $this->session;
         int $start = $this->sdl->ticks();
@@ -87,7 +87,7 @@ final class Game {
 
             int $renderStart = hrtime(true);
             $session->render($this->fpsText);
-            $session->renderer->screen->toRgb($session->palette, $session->player->palette());
+            $session->renderer->screen->toRgb($session->palette, $session->phase >= 2 ? 0 : $session->player->palette());
             int $renderNanos = hrtime(true) - $renderStart;
             $this->sdl->present($session->renderer->screen);
             $this->reportStats($now, $renderNanos);

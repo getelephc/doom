@@ -41,8 +41,17 @@ require_once 'SDL/Input.php';
 require_once 'Play/ThingTypes.php';
 require_once 'Play/Things.php';
 require_once 'Play/Collision.php';
+require_once 'Play/LineActions.php';
+require_once 'Play/AdvancedSpecials.php';
 require_once 'Play/Specials.php';
+require_once 'Play/Inventory.php';
 require_once 'Play/Player.php';
+require_once 'Play/CombatTrace.php';
+require_once 'Play/MonsterRules.php';
+require_once 'Play/MonsterAI.php';
+require_once 'Play/Projectiles.php';
+require_once 'Play/Combat.php';
+require_once 'Play/Weapons.php';
 
 require_once 'Render/Screen.php';
 require_once 'Render/LightTables.php';
@@ -50,6 +59,9 @@ require_once 'Render/BspRenderer.php';
 require_once 'Render/SpriteRenderer.php';
 require_once 'Render/Hud.php';
 require_once 'Render/Automap.php';
+require_once 'Render/WeaponRenderer.php';
+require_once 'Render/Intermission.php';
+require_once 'Render/Finale.php';
 require_once 'Render/Renderer.php';
 
 require_once 'App/Config.php';

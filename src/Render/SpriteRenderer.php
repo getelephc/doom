@@ -184,6 +184,8 @@ final class SpriteRenderer {
             $colormap = $world->wallLight[$lightSlot];
         }
 
+        if ($world->fixedColormap >= 0) { $colormap = $world->fixedColormap; }
+        bool $shadow = $mobjs[$index]->type === 58;
         int $spriteTop = $mobjs[$index]->z + $topOffset;
         int $topHeight = $spriteTop - $world->viewZ;
         int $textureMid = $topHeight << 16;
@@ -253,7 +255,11 @@ final class SpriteRenderer {
                     int $colorAt = $colormap + $data[$texelAt];
                     int $screenRow = $y * $w;
                     int $screenAt = $screenRow + $x;
-                    $screen[$screenAt] = $colormaps[$colorAt];
+                    if ($shadow) {
+                        if ((($x + $y) & 1) !== 0) { continue; }
+                        int $shadowAt = 1536 + $screen[$screenAt];
+                        $screen[$screenAt] = $colormaps[$shadowAt];
+                    } else { $screen[$screenAt] = $colormaps[$colorAt]; }
                 }
                 int $postBytes = $length + 4;
                 int $next = $post + $postBytes;

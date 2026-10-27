@@ -101,6 +101,7 @@ final class BspRenderer {
     public buffer<int> $flatTranslation;
     public int $skyFlat;
     public int $skyTexture;
+    public int $fixedColormap = -1;
     public buffer<u8> $colormaps;
     public buffer<int> $wallLight;
     public buffer<int> $planeLight;
@@ -451,7 +452,6 @@ final class BspRenderer {
         int $focalSide = $focal * $side1;
         int $focalDelta = $focal * $deltaSide;
         int $centerX = $this->centerX;
-        int $centerYFixed = $this->centerYFixed;
         int $focalScale = $this->focalScale;
         buffer<int> $tops = $this->clipTop;
         buffer<int> $bottoms = $this->clipBottom;
@@ -716,6 +716,7 @@ final class BspRenderer {
     }
 
     public function drawWall(int $x, int $top, int $bottom, int $texture, int $u, int $mid, int $iscale, int $colormap): void {
+        if ($this->fixedColormap >= 0) { $colormap = $this->fixedColormap; }
         if ($top > $bottom || $texture < 0) {
             return;
         }
@@ -811,7 +812,7 @@ final class BspRenderer {
                 $scaleIndex = 47;
             }
             int $lightSlot = $lightRow + $scaleIndex;
-            int $colormap = $wallLight[$lightSlot];
+            int $colormap = $this->fixedColormap >= 0 ? $this->fixedColormap : $wallLight[$lightSlot];
             // the texture's rows 0 .. height - 1 fall between these screen rows
             int $top = $this->rowOf($midUnits, $scale);
             int $below = $this->rowOf($bottomUnits, $scale);
@@ -893,7 +894,8 @@ final class BspRenderer {
                 $zone = 127;
             }
             int $lightSlot = $planeRow + $zone;
-            int $colorAt = $planeLight[$lightSlot] + $wadData[$texelAt];
+            int $colormap = $this->fixedColormap >= 0 ? $this->fixedColormap : $planeLight[$lightSlot];
+            int $colorAt = $colormap + $wadData[$texelAt];
             int $screenRow = $y * $w;
             int $screenAt = $screenRow + $x;
             $screen[$screenAt] = $colormaps[$colorAt];

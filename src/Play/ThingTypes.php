@@ -21,6 +21,16 @@ final class ThingTypes {
 
     public function __construct() {
         $rows = [
+            // Dynamic objects, spawned by combat rather than by map THINGS.
+            [6000, "BAL1", "A", 2, 4, 1, 6, 8, 0, 0],
+            [6002, "MISL", "A", 1, 4, 1, 11, 8, 0, 0],
+            [6003, "PLSS", "A", 2, 4, 1, 6, 8, 0, 0],
+            [6004, "BFS1", "A", 2, 4, 1, 13, 8, 0, 0],
+            [6005, "BAL7", "A", 2, 4, 1, 6, 8, 0, 0],
+            [6006, "BAL2", "A", 2, 4, 1, 6, 8, 0, 0],
+            [6007, "PLSE", "A", 1, 4, 1, 6, 8, 0, 0],
+            [6008, "BFE1", "A", 1, 4, 1, 13, 8, 0, 0],
+            [6001, "BEXP", "A", 1, 0, 1, 10, 42, 0, 0],
             // monsters
             [3004, "POSS", "A", 2, 10, 0, 20, 56, 1, 0],
             [9, "SPOS", "A", 2, 10, 0, 20, 56, 1, 0],
@@ -144,6 +154,11 @@ final class ThingTypes {
             $this->hanging[$i] = (int)$row[9];
         }
         $this->sprite = $sprites;
+    }
+
+    public function countedItem(int $type): bool {
+        return $type === 2013 || $type === 2014 || $type === 2015 || $type === 2022
+            || $type === 2023 || $type === 2024 || $type === 2025 || $type === 2026 || $type === 2045;
     }
 
     public function find(int $type): int {

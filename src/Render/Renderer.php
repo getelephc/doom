@@ -31,6 +31,9 @@ final class Renderer {
     public Automap $automap;
     public bool $showAutomap;
     public int $viewHeight;
+    public WeaponRenderer $weapons;
+    public Intermission $intermission;
+    public Finale $finale;
 
     public function __construct(Wad $wad, Palette $palette, Textures $textures, Flats $flats, Sprites $sprites, Trig $trig, int $width, int $height) {
         $this->wad = $wad;
@@ -48,6 +51,9 @@ final class Renderer {
         $this->hud = new Hud($wad, $this->screen, $this->viewHeight);
         $this->automap = new Automap($this->screen, $this->viewHeight);
         $this->showAutomap = false;
+        $this->weapons = new WeaponRenderer($wad);
+        $this->intermission = new Intermission($wad);
+        $this->finale = new Finale($wad);
     }
 
     public function useMap(MapData $map): void {
@@ -55,10 +61,13 @@ final class Renderer {
     }
 
     public function render(MapData $map, Things $things, Player $player, int $tic, string $fps): void {
+        $this->world->fixedColormap = -1;
+        if ($player->lightAmp > 128 || ($player->lightAmp & 8) !== 0) { $this->world->fixedColormap = 0; }
+        if ($player->invulnerable > 128 || ($player->invulnerable & 8) !== 0) { $this->world->fixedColormap = 8192; }
         $this->textures->animate($tic);
         $this->flats->animate($tic);
         if ($this->showAutomap) {
-            $this->automap->draw($map, $player, $this->trig);
+            $this->automap->draw($map, $player, $this->trig, $things);
             $this->hud->drawStatusBar($player);
             $this->hud->drawOverlay($fps);
             return;
@@ -79,6 +88,7 @@ final class Renderer {
         $this->world->finishFrame();
         $this->spriteRenderer->render($things, $tic);
         $this->world->drawMaskedSegs();
+        $this->weapons->draw($this->screen, $player, $this->trig, $tic);
         $this->hud->drawStatusBar($player);
         $this->hud->drawOverlay($fps);
     }

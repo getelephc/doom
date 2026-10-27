@@ -24,6 +24,7 @@ final class Collision {
     // special lines the last checked box touched, for walk-over triggers
     public buffer<int> $touched;
     public int $touchedCount;
+    public bool $checkingMonster;
 
     public function __construct(MapData $map, BspWalker $locator, Things $things) {
         $this->map = $map;
@@ -35,6 +36,7 @@ final class Collision {
         $this->ceilingZ = 0;
         $this->touched = buffer_new<int>(64);
         $this->touchedCount = 0;
+        $this->checkingMonster = false;
     }
 
     public function release(): void {
@@ -54,6 +56,12 @@ final class Collision {
 
     // Can a player of radius 16 stand at (x, y) with feet at $z? Sets floorZ and ceilingZ.
     public function checkPosition(int $x, int $y, int $z): bool {
+        return $this->checkActorPosition($x, $y, $z, -1, 16, 56);
+    }
+
+    // The same opening and step rules for monsters, excluding their own record.
+    public function checkActorPosition(int $x, int $y, int $z, int $ignore, int $radius, int $height): bool {
+        $this->checkingMonster = $ignore >= 0;
         int $sector = $this->sectorAt($x, $y);
         if ($sector < 0) {
             return false;
@@ -62,11 +70,11 @@ final class Collision {
         $this->floorZ = $sectors[$sector]->floor_height;
         $this->ceilingZ = $sectors[$sector]->ceiling_height;
         $this->touchedCount = 0;
-        int $left = $x - 16;
-        int $right = $x + 16;
-        int $bottom = $y - 16;
-        int $top = $y + 16;
-        if (!$this->checkThings($x, $y)) {
+        int $left = $x - $radius;
+        int $right = $x + $radius;
+        int $bottom = $y - $radius;
+        int $top = $y + $radius;
+        if (!$this->checkThings($x, $y, $ignore, $radius)) {
             return false;
         }
         if (!$this->checkLines($left, $right, $bottom, $top)) {
@@ -75,16 +83,16 @@ final class Collision {
         int $room = $this->ceilingZ - $this->floorZ;
         int $headroom = $this->ceilingZ - $z;
         int $step = $this->floorZ - $z;
-        return $room >= 56 && $headroom >= 56 && $step <= 24;
+        return $room >= $height && $headroom >= $height && $step <= 24;
     }
 
-    public function checkThings(int $x, int $y): bool {
+    public function checkThings(int $x, int $y, int $ignore = -1, int $radius = 16): bool {
         buffer<Mobj> $mobjs = $this->things->mobjs;
         for ($i = 0; $i < $this->things->count; $i++) {
-            if ($mobjs[$i]->solid === 0 || $mobjs[$i]->active === 0) {
+            if ($i === $ignore || $mobjs[$i]->solid === 0 || $mobjs[$i]->active === 0) {
                 continue;
             }
-            int $reach = $mobjs[$i]->radius + 16;
+            int $reach = $mobjs[$i]->radius + $radius;
             int $dx = $mobjs[$i]->x - $x;
             int $dy = $mobjs[$i]->y - $y;
             if ($dx < $reach && $dx > -$reach && $dy < $reach && $dy > -$reach) {
@@ -193,6 +201,9 @@ final class Collision {
         int $front = $lines[$line]->front_sector;
         int $back = $lines[$line]->back_sector;
         int $blocking = $lines[$line]->flags & 1;
+        if ($this->checkingMonster && ($lines[$line]->flags & 2) !== 0) {
+            return false;
+        }
         if ($front < 0 || $back < 0 || $blocking !== 0) {
             return false;
         }
