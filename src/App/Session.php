@@ -17,6 +17,7 @@ use Showcases\Doom\Render\Renderer;
 use Showcases\Doom\SDL\Input;
 use Showcases\Doom\Support\Trig;
 use Showcases\Doom\Wad\Wad;
+use Showcases\Doom\Audio\Sounds;
 
 // One game: the WAD's pictures, the current map with its objects and specials,
 // the marine, and the renderer that draws them into an 8-bit frame. Nothing here
@@ -40,6 +41,7 @@ final class Session {
     public Renderer $renderer;
     public string $mapName;
     public int $levelTime;
+    public Sounds $sounds;
 
     public function __construct(Config $config) {
         $this->config = $config;
@@ -59,6 +61,7 @@ final class Session {
         $this->player = new Player();
         $this->mapName = "";
         $this->levelTime = 0;
+        $this->sounds = new Sounds($this->wad);
     }
 
     // Loads the WAD and its pictures, builds the renderer and enters the startup map.
@@ -79,6 +82,7 @@ final class Session {
         }
         $this->say("Graphics: " . $this->textures->count . " textures, " . $this->flats->count . " flats, " . $this->sprites->count . " sprite frames");
         $this->renderer = new Renderer($this->wad, $this->palette, $this->textures, $this->flats, $this->sprites, $this->trig, $this->config->renderWidth, $this->config->renderHeight);
+        $this->sounds->load();
         return $this->loadMap($this->config->startupMap);
     }
 
@@ -107,6 +111,9 @@ final class Session {
         int $floor = $this->floorAt($map->playerStartX, $map->playerStartY);
         $this->player->spawn($map->playerStartX, $map->playerStartY, $angle, $floor);
         $this->player->keys = 0;
+        $this->sounds->stop();
+        $this->sounds->music->stop();
+        $this->startMapMusic();
         $this->renderer->hud->say($name);
         $this->say($map->summary() . " | " . $this->things->count . " objects");
         return true;
@@ -142,6 +149,19 @@ final class Session {
         if ($this->specials->exitRequest !== 0) {
             $this->loadMap($this->nextMap($this->specials->exitRequest === 2));
         }
+    }
+
+    public function startMapMusic(): void {
+        $this->sounds->music->load($this->mapMusic($this->mapName));
+    }
+
+    public function mapMusic(string $map): string {
+        string $song = "D_" . $map;
+        if (substr($map, 1, 1) === "4") {
+            $tracks = ["D_E3M4", "D_E3M2", "D_E3M3", "D_E1M5", "D_E2M7", "D_E2M4", "D_E2M6", "D_E2M5", "D_E1M9"];
+            $song = (string)$tracks[(int)substr($map, 3, 1) - 1];
+        }
+        return $song;
     }
 
     // Draws the current view (or the automap) and the status bar into the 8-bit frame.

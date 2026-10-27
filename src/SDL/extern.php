@@ -2,6 +2,13 @@
 
 extern "SDL2" {
     function SDL_Init(u32 $flags): i32;
+    function SDL_InitSubSystem(u32 $flags): i32;
+    function SDL_OpenAudioDevice(ptr $device, i32 $capture, ptr $desired, ptr $obtained, i32 $changes): u32;
+    function SDL_PauseAudioDevice(u32 $device, i32 $paused): void;
+    function SDL_QueueAudio(u32 $device, ptr $data, u32 $length): i32;
+    function SDL_GetQueuedAudioSize(u32 $device): u32;
+    function SDL_ClearQueuedAudio(u32 $device): void;
+    function SDL_CloseAudioDevice(u32 $device): void;
     function SDL_Quit(): void;
     function SDL_CreateWindow(string $title, i32 $x, i32 $y, i32 $w, i32 $h, u32 $flags): ptr;
     function SDL_DestroyWindow(ptr $window): void;

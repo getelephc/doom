@@ -15,9 +15,14 @@ require_once 'Data/Mobj.php';
 require_once 'Data/Mover.php';
 require_once 'Data/LightEffect.php';
 require_once 'Data/Button.php';
+require_once 'Data/SoundChannel.php';
+require_once 'Data/MusicEvent.php';
+require_once 'Data/MusicVoice.php';
 
 require_once 'Support/Trig.php';
 require_once 'Wad/Wad.php';
+require_once 'Audio/Music.php';
+require_once 'Audio/Sounds.php';
 
 require_once 'Graphics/Animations.php';
 require_once 'Graphics/Palette.php';

@@ -4,6 +4,7 @@ namespace Showcases\Doom\App;
 
 use Showcases\Doom\SDL\Input;
 use Showcases\Doom\SDL\SDL;
+use Showcases\Doom\SDL\Audio;
 
 // The window around a Session: keyboard, the fixed 35 Hz tic clock, one frame per
 // loop iteration presented through SDL, and the frame-rate statistics.
@@ -20,10 +21,12 @@ final class Game {
     public int $statStartTicks;
     public int $statFrames;
     public int $statRenderNanos;
+    public Audio $audio;
 
     public function __construct(Config $config) {
         $this->config = $config;
         $this->sdl = new SDL();
+        $this->audio = new Audio();
         $this->input = new Input();
         $this->session = new Session($config);
         $this->state = GameState::Booting;
@@ -46,6 +49,7 @@ final class Game {
         }
 
         $this->state = GameState::Running;
+        if (!$this->audio->boot()) { echo "Audio unavailable: " . $this->sdl->lastError() . "\n"; }
         echo "DOOM showcase running\n";
         echo "WASD/arrows move, Shift runs, Space/E uses, Tab shows the map, V toggles vsync, ESC quits\n";
 
@@ -77,6 +81,7 @@ final class Game {
             }
             while ($this->tic < $dueTics) {
                 $session->runTic($this->input, $keys);
+                $this->audio->submit($session->sounds);
                 $this->tic++;
             }
 
@@ -88,6 +93,7 @@ final class Game {
             $this->reportStats($now, $renderNanos);
         }
 
+        $this->audio->shutdown();
         $this->sdl->shutdown();
     }
 
