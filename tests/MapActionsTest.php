@@ -74,17 +74,7 @@ final class MapActionsTest extends CombatCase {
     public function threeSectors(Session $s): void {
         $previous = $s->map->sectors;
         $sectors = buffer_new<Sector>(3);
-        for ($i = 0; $i < 3; $i++) {
-            int $from = $i % 2;
-            $sectors[$i]->floor_height = $previous[$from]->floor_height;
-            $sectors[$i]->ceiling_height = $previous[$from]->ceiling_height;
-            $sectors[$i]->floor_pic = $previous[$from]->floor_pic;
-            $sectors[$i]->ceiling_pic = $previous[$from]->ceiling_pic;
-            $sectors[$i]->light_level = $previous[$from]->light_level;
-            $sectors[$i]->special = $previous[$from]->special;
-            $sectors[$i]->tag = $previous[$from]->tag;
-            $sectors[$i]->mover = $previous[$from]->mover;
-        }
+        for ($i = 0; $i < 3; $i++) { $s->saves->records->writeSector($sectors, $i, $s->saves->records->readSector($previous, $i % 2)); }
         $s->map->sectors = $sectors;
         $s->map->sectorCount = 3;
         buffer_free($previous);

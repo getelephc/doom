@@ -14,7 +14,7 @@ final class ArsenalTest extends CombatCase {
 
     public function testAllOriginalWeaponsCanBeGrantedAndSelected(): void {
         $s = $this->boot();
-        $s->player->inventory->grant($s->player, true);
+        $s->cheats->feed($s, "IDKFA");
         $this->assertSameInt(510, $s->player->weapons);
         $this->assertSameInt(7, $s->player->keys);
         $this->assertSameInt(300, $s->player->cells);
@@ -31,8 +31,7 @@ final class ArsenalTest extends CombatCase {
     public function testChaingunAndPlasmaUseTheirOwnAmmo(): void {
         $s = $this->boot();
         $this->isolate($s, 3);
-        $s->player->inventory->grant($s->player, false);
-        $s->player->godMode = true;
+        $s->cheats->feed($s, "idfaiddqd");
         $s->player->weapon = 4;
         $this->advance($s, 5, 224);
         $this->assertSameInt(198, $s->player->bullets);
@@ -59,8 +58,7 @@ final class ArsenalTest extends CombatCase {
     public function testBfgConsumesFortyCellsAndWaitsForItsCharge(): void {
         $s = $this->boot();
         $this->isolate($s, -1);
-        $s->player->inventory->grant($s->player, false);
-        $s->player->godMode = true;
+        $s->cheats->feed($s, "idfaiddqd");
         $s->player->weapon = 7;
         $this->advance($s, 1, 224);
         $this->assertSameInt(260, $s->player->cells);

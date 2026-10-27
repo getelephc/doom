@@ -10,12 +10,21 @@ final class SDL {
     public ptr $renderer;
     public ptr $texture;
     public bool $vsync;
+    public buffer<u8> $event;
+    public buffer<u32> $motion;
+    public Events $events;
+    public string $text = "";
+    public bool $quit = false;
+    public bool $captured = false;
 
     public function __construct() {
         $this->window = ptr_null();
         $this->renderer = ptr_null();
         $this->texture = ptr_null();
         $this->vsync = false;
+        $this->event = buffer_new<u8>(64);
+        $this->events = new Events();
+        $this->motion = buffer_new<u32>(2);
     }
 
     public function boot(Config $config): bool {
@@ -53,6 +62,7 @@ final class SDL {
             return false;
         }
 
+        SDL_StartTextInput();
         $this->setVsync($config->vsync);
         return true;
     }
@@ -78,7 +88,27 @@ final class SDL {
     }
 
     public function pumpEvents(): void {
-        SDL_PumpEvents();
+        $this->events->begin();
+        ptr $event = buffer_ptr($this->event);
+        while (SDL_PollEvent($event) !== 0) {
+            $this->events->consume($this->event);
+        }
+        $this->text = $this->events->text;
+        $this->quit = $this->events->quit;
+    }
+
+    public function mouse(Input $input, bool $capture): void {
+        if ($capture !== $this->captured) {
+            SDL_SetRelativeMouseMode($capture ? 1 : 0);
+            $this->captured = $capture;
+        }
+        ptr $motion = buffer_ptr($this->motion);
+        int $buttons = SDL_GetRelativeMouseState($motion, ptr_offset($motion, 4));
+        if (!$capture) { $input->mouseX = 0; $input->mouseButtons = 0; return; }
+        int $x = $this->motion[0];
+        if ($x >= 2147483648) { $x -= 4294967296; }
+        $input->mouseX += $x;
+        $input->mouseButtons = $buttons;
     }
 
     public function keyboardState(): ptr {
@@ -98,6 +128,8 @@ final class SDL {
     }
 
     public function shutdown(): void {
+        SDL_SetRelativeMouseMode(0);
+        SDL_StopTextInput();
         if (!ptr_is_null($this->texture)) {
             SDL_DestroyTexture($this->texture);
             $this->texture = ptr_null();

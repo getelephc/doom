@@ -22,6 +22,11 @@ extern "SDL2" {
     function SDL_RenderCopy(ptr $renderer, ptr $texture, ptr $src, ptr $dst): i32;
     function SDL_RenderPresent(ptr $renderer): void;
     function SDL_PumpEvents(): void;
+    function SDL_PollEvent(ptr $event): i32;
+    function SDL_StartTextInput(): void;
+    function SDL_StopTextInput(): void;
+    function SDL_SetRelativeMouseMode(i32 $enabled): i32;
+    function SDL_GetRelativeMouseState(ptr $x, ptr $y): u32;
     function SDL_GetKeyboardState(ptr $numkeys): ptr;
     function SDL_GetTicks(): u32;
     function SDL_Delay(u32 $ms): void;

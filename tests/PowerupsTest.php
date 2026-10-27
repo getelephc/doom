@@ -57,9 +57,7 @@ final class PowerupsTest extends CombatCase {
         $this->isolate($s, -1);
         $s->mapName = "E1M8";
         $s->map->sectors[0]->special = 11;
-        $s->player->godMode = true;
-        $s->player->invulnerable = 1050;
-        $s->player->suit = 2100;
+        $s->cheats->feed($s, "iddqdidbeholdvidbeholdr");
         $this->advance($s, 160);
         $this->assertFalse($s->player->godMode);
         $this->assertSameInt(3, $s->phase);

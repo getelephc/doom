@@ -27,6 +27,6 @@ final class Finale {
         else if ($episode === 2) { $hud->text("THE CYBERDEMON HAS FALLEN.", 45, 93); }
         else if ($episode === 3) { $hud->text("HELL IS SILENT. TIME TO GO HOME.", 25, 93); }
         else { $hud->text("THE INVASION HAS BEEN STOPPED.", 30, 93); }
-        $hud->text("ENTER TO RESTART", 65, 115);
+        $hud->text("ENTER FOR THE MAIN MENU", 65, 115);
     }
 }

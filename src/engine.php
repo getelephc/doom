@@ -37,6 +37,7 @@ require_once 'Bsp/BspWalker.php';
 
 // keyboard state is read from SDL's array through a plain pointer, no SDL call
 require_once 'SDL/Input.php';
+require_once 'SDL/Events.php';
 
 require_once 'Play/ThingTypes.php';
 require_once 'Play/Things.php';
@@ -46,6 +47,7 @@ require_once 'Play/AdvancedSpecials.php';
 require_once 'Play/Specials.php';
 require_once 'Play/Inventory.php';
 require_once 'Play/Player.php';
+require_once 'Play/Cheats.php';
 require_once 'Play/CombatTrace.php';
 require_once 'Play/MonsterRules.php';
 require_once 'Play/MonsterAI.php';
@@ -64,5 +66,8 @@ require_once 'Render/Intermission.php';
 require_once 'Render/Finale.php';
 require_once 'Render/Renderer.php';
 
+require_once 'App/SaveRecords.php';
+require_once 'App/SaveGame.php';
+require_once 'App/Menu.php';
 require_once 'App/Config.php';
 require_once 'App/Session.php';

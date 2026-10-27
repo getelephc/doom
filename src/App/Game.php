@@ -48,10 +48,13 @@ final class Game {
             return;
         }
 
+        if ($this->config->startInMenu) { $this->session->menu->page = 1; $this->session->menu->title = true; $this->session->sounds->music->load("D_INTRO"); }
         $this->state = GameState::Running;
-        if (!$this->audio->boot()) { echo "Audio unavailable: " . $this->sdl->lastError() . "\n"; }
+        if (!$this->audio->boot()) {
+            echo "Audio unavailable: " . $this->sdl->lastError() . "\n";
+        }
         echo "DOOM showcase running\n";
-        echo "WASD/arrows move, Ctrl fires, 1-7 select weapons, Shift runs, Space/E uses, Enter continues/restarts, Tab map, V vsync, Esc quits\n";
+        echo "WASD moves, arrows move/turn, Ctrl fires, 1-7 select weapons, Shift runs, Space/E uses, Enter continues/restarts, Tab map, V vsync, Esc opens the menu, mouse turns and fires\n";
 
         Session $session = $this->session;
         int $start = $this->sdl->ticks();
@@ -59,11 +62,14 @@ final class Game {
         while ($this->state === GameState::Running) {
             $this->sdl->pumpEvents();
             $keys = $this->sdl->keyboardState();
-            if ($this->input->shouldQuit($keys) !== 0) {
+            if ($this->sdl->quit || $session->menu->quit) {
                 $this->state = GameState::Stopped;
             }
+            if ($session->menu->page === 0 && $session->phase <= 1 && $this->sdl->text !== "") { $session->cheats->feed($session, $this->sdl->text); }
+            $this->input->alwaysRun = $this->config->alwaysRun;
+            $this->sdl->mouse($this->input, $this->config->mouseEnabled && $session->menu->page === 0 && $session->phase === 0);
             $this->handleVsyncToggle($keys);
-            $this->handleMapToggle($keys);
+            if ($session->menu->page === 0 && $session->phase === 0) { $this->handleMapToggle($keys); }
 
             int $now = $this->sdl->ticks();
             if ($this->config->bootDurationMs > 0 && $now - $start >= $this->config->bootDurationMs) {
@@ -87,7 +93,11 @@ final class Game {
 
             int $renderStart = hrtime(true);
             $session->render($this->fpsText);
-            $session->renderer->screen->toRgb($session->palette, $session->phase >= 2 ? 0 : $session->player->palette());
+            int $palette = $session->player->palette();
+            if ($session->phase >= 2 || $session->menu->page !== 0) {
+                $palette = 0;
+            }
+            $session->renderer->screen->toRgb($session->palette, $palette);
             int $renderNanos = hrtime(true) - $renderStart;
             $this->sdl->present($session->renderer->screen);
             $this->reportStats($now, $renderNanos);

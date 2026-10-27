@@ -15,6 +15,7 @@ use Showcases\Doom\Play\Specials;
 use Showcases\Doom\Play\Things;
 use Showcases\Doom\Play\Combat;
 use Showcases\Doom\Play\Weapons;
+use Showcases\Doom\Play\Cheats;
 use Showcases\Doom\Audio\Sounds;
 use Showcases\Doom\Render\Renderer;
 use Showcases\Doom\SDL\Input;
@@ -46,6 +47,9 @@ final class Session {
     public Sounds $sounds;
     public Combat $combat;
     public Weapons $weapons;
+    public Cheats $cheats;
+    public Menu $menu;
+    public SaveGame $saves;
     public bool $combatReady;
     // 0 playing, 1 dead, 2 intermission. Confirmation always needs a fresh press.
     public int $phase;
@@ -73,6 +77,9 @@ final class Session {
         $this->levelTime = 0;
         $this->sounds = new Sounds($this->wad);
         $this->weapons = new Weapons();
+        $this->cheats = new Cheats();
+        $this->menu = new Menu();
+        $this->saves = new SaveGame();
         $this->combatReady = false;
         $this->phase = 0;
         $this->phaseTics = 0;
@@ -157,6 +164,9 @@ final class Session {
 
     // One game tic: the marine, the specials, pickups, then death, teleports and exits.
     public function runTic(Input $input, ptr $keys): void {
+        if ($this->menu->handle($this, $input, $keys)) { return; }
+        $this->player->angle = ($this->player->angle - $input->mouseX * 8) & 8191;
+        $input->mouseX = 0;
         bool $confirm = $input->confirm($keys) !== 0 || $input->fire($keys) !== 0;
         if ($this->phase !== 0) {
             $this->phaseTics++;
@@ -173,8 +183,7 @@ final class Session {
                 } else if ($this->phase === 2) {
                     $this->loadMap($this->pendingMap);
                 } else {
-                    $this->player->reset();
-                    $this->loadMap("E1M1");
+                    $this->menu->page = 1;
                 }
             }
             $this->confirmHeld = $confirm;
@@ -278,6 +287,14 @@ final class Session {
 
     // Draws the current view (or the automap) and the status bar into the 8-bit frame.
     public function render(string $fps): void {
+        if ($this->menu->page !== 0) {
+            $this->renderer->render($this->map, $this->things, $this->player, $this->levelTime, "");
+            $this->menu->draw($this);
+            return;
+        }
+        if ($this->cheats->showPosition) {
+            $fps = "X " . $this->player->unitX() . " Y " . $this->player->unitY() . " Z " . $this->player->unitZ();
+        }
         if ($this->phase === 3) {
             $this->renderer->finale->draw($this->renderer->hud, (int)substr($this->mapName, 1, 1), $this->phaseTics);
             return;

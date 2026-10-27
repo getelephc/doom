@@ -12,6 +12,10 @@ final class Config {
     public string $startupMap;
     public int $tickRate;
     public int $skill = 3;
+    public string $saveDirectory = "saves";
+    public bool $startInMenu = true;
+    public bool $mouseEnabled = true;
+    public bool $alwaysRun = false;
     public bool $vsync;
     public int $bootDurationMs;
     // load and map messages on stdout
