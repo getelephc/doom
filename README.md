@@ -78,19 +78,42 @@ The engine is written from the public descriptions of the WAD format and of how 
 - `elephc test` for the showcase's own test suite
 - Typed integer locals and buffers keep the pixel-writing loops away from boxed `mixed` values
 
+## Releases
+
+Version tags publish native archives through [GitHub Releases](https://github.com/getelephc/doom/releases).
+The supported desktop targets are Linux x86_64, Linux ARM64 and macOS ARM64.
+Archives contain `doom`, this README, the MIT license and `BUILD-INFO.txt` with
+the source commit and compiler version. A `checksums.txt` file accompanies each
+release. WADs and save files stay on the player's machine.
+
+Install SDL2 before running a downloaded binary:
+
+```bash
+# Debian / Ubuntu
+sudo apt-get install libsdl2-2.0-0
+
+# macOS with Homebrew
+brew install sdl2
+```
+
+Extract the archive for your host, enter its directory, then run
+`./doom /path/to/DOOM1.WAD`. Use `./doom /path/to/DOOM.WAD` for registered content.
+macOS archives are ad-hoc signed; Developer ID signing and notarization are not
+part of this release pipeline. Building from source is also supported.
+
 ## Build
 
 Requires [elephc](https://github.com/illegalstudio/elephc#install), SDL2 and a local copy of `DOOM1.WAD` (shareware), or your registered/Ultimate `DOOM.WAD`. From this directory:
 
 ```bash
 # compile
-elephc -l SDL2 --heap-size=134217728 main.php
+make
 
 # run
 ./main
 ```
 
-On macOS with Homebrew, add `-L /opt/homebrew/lib` if SDL2 is outside the default library search path. Build and run from this repository's root.
+Make detects Homebrew's SDL2 library directory on macOS. For a custom installation, use `make SDL_LIB_DIR=/path/to/lib`. Build and run from this repository's root. The pinned CI/release compiler version is recorded in [`.elephc-version`](.elephc-version). You can select a local compiler with `make ELEPHC=/path/to/elephc`.
 
 ```bash
 ./main /path/to/DOOM.WAD       # title and episode menu
@@ -104,10 +127,39 @@ Download the shareware WAD: search for "DOOM1.WAD shareware" or extract it from 
 ## Tests
 
 ```bash
-elephc test tests --heap-size=134217728
+make check  # release-tool tests and shell checks (ShellCheck when installed)
+make test   # synthetic-WAD gameplay suite
 ```
 
-The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, enemies, barrels, weapon pictures, PCM samples and light tables that keep every color). It checks every weapon and monster family, cheats, power-ups, difficulty, boss actions, sound propagation, projectiles, explosions, stereo mixing, MUS parsing, map changes, stairs, donut floors, crushers, teleporters, pickups, save validation, menu pause and rendered frames. The larger synthetic full-asset fixture requires the explicit 128 MiB heap above. A complete level-flow test fires the weapon, walks across the map, uses the exit and confirms the intermission. This repository's CI runs it against the elephc nightly on pushes and pull requests.
+The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, enemies, barrels, weapon pictures, PCM samples and light tables that keep every color). It checks every weapon and monster family, cheats, power-ups, difficulty, boss actions, sound propagation, projectiles, explosions, stereo mixing, MUS parsing, map changes, stairs, donut floors, crushers, teleporters, pickups, save validation, menu pause and rendered frames. Make supplies the 128 MiB heap required by the larger synthetic full-asset fixture. A complete level-flow test fires the weapon, walks across the map, uses the exit and confirms the intermission. This repository's CI tests and builds all three desktop targets on pushes and pull requests, using the compiler pinned in `.elephc-version`.
+
+## Making a release
+
+From a clean `main` that is already published to `origin`, run:
+
+```bash
+make release-dry-run       # propose and validate the next version
+make release               # choose a version and confirm the tag push
+# Or choose the version up front:
+make release VERSION=0.1.0
+```
+
+The helper follows the same flow as ggw: propose the next patch version (starting
+at `v0.1.0`), create an annotated tag, then push that tag. It requires Git and an
+authenticated GitHub CLI. GitHub Actions validates the tag, tests and builds Linux
+x86_64, Linux ARM64 and macOS ARM64, and publishes all three archives together
+with SHA-256 checksums and generated release notes. A failed upload can resume
+from the draft release without replacing an already published version.
+
+To inspect a local archive without publishing anything:
+
+```bash
+make package VERSION=0.1.0
+```
+
+Output goes to `dist/`, for example `doom_0.1.0_linux_x86_64.tar.gz` and its
+`.sha256` file. `make clean` removes local compiler outputs. Release archives
+keep SDL2 as an external runtime dependency.
 
 ## Controls
 

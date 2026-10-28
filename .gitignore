@@ -4,3 +4,5 @@ main
 DOOM1.WAD
 DOOM.WAD
 saves/
+dist/
+__pycache__/

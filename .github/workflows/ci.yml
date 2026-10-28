@@ -1,47 +1,20 @@
 name: CI
 
-# This standalone repository owns the engine and its synthetic-WAD regression suite.
-# Use the elephc nightly so new compiler features can be exercised independently.
-
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md']
   pull_request:
+    paths-ignore: ['**/*.md']
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install the runtime's stream libraries
-        # The engine reads its WAD with file_get_contents() on a run-time path, which
-        # links elephc's stream layer (-lz -lbz2).
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libbz2-dev zlib1g-dev
-
-      - name: Install the elephc nightly
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARBALL: elephc-nightly-x86_64-unknown-linux-gnu.tar.gz
-        run: |
-          mkdir -p "$RUNNER_TEMP/elephc"
-          cd "$RUNNER_TEMP/elephc"
-          gh release download nightly --repo illegalstudio/elephc --pattern "$TARBALL" --pattern "$TARBALL.sha256"
-          sha256sum -c "$TARBALL.sha256"
-          tar xzf "$TARBALL"
-          echo "$RUNNER_TEMP/elephc" >> "$GITHUB_PATH"
-
-      - name: Show the compiler version
-        run: elephc --version
-
-      - name: Test
-        # Synthetic assets cover gameplay, saves, input and audio without SDL or a WAD.
-        run: elephc test tests --heap-size=134217728
+  build:
+    uses: ./.github/workflows/build.yml

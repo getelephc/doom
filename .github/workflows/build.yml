@@ -1,0 +1,67 @@
+name: Build and test
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Archive version, or dev for CI
+        type: string
+        default: dev
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: linux_x86_64
+          - runner: ubuntu-24.04-arm
+            target: linux_aarch64
+          - runner: macos-15
+            target: macos_aarch64
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install native dependencies
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            sudo apt-get update
+            sudo apt-get install -y libsdl2-dev libbz2-dev zlib1g-dev shellcheck
+          else
+            brew install sdl2 shellcheck
+          fi
+
+      - name: Install the pinned compiler
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          scripts/install-elephc.sh "$RUNNER_TEMP/elephc"
+          echo "$RUNNER_TEMP/elephc" >> "$GITHUB_PATH"
+
+      - name: Check release tooling
+        run: make check
+
+      - name: Test gameplay
+        run: make test
+
+      - name: Build and package
+        run: make package
+
+      - name: Upload native archive and checksum
+        uses: actions/upload-artifact@v7
+        with:
+          name: doom-${{ matrix.target }}
+          path: dist/doom_*.tar.gz*
+          if-no-files-found: error
+          retention-days: 7
