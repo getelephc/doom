@@ -9,21 +9,27 @@ import tarfile
 import tempfile
 
 
+def extract(archive, directory):
+    # macOS temporary paths can use /var, a symlink to /private/var.
+    directory = directory.resolve()
+    with tarfile.open(archive) as tar:
+        for member in tar.getmembers():
+            path = directory / member.name
+            if not path.resolve().is_relative_to(directory) or not member.isfile():
+                raise ValueError(f"Unsafe archive entry: {member.name}")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(tar.extractfile(member).read())
+            path.chmod(member.mode)
+    roots = list(directory.iterdir())
+    if len(roots) != 1:
+        raise ValueError("Expected one archive directory")
+    return roots[0]
+
+
 def check(archive):
     with tempfile.TemporaryDirectory(prefix="doom clean mac ") as directory:
-        temporary = Path(directory)
-        with tarfile.open(archive) as tar:
-            for member in tar.getmembers():
-                path = temporary / member.name
-                if not path.resolve().is_relative_to(temporary) or not member.isfile():
-                    raise ValueError(f"Unsafe archive entry: {member.name}")
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(tar.extractfile(member).read())
-                path.chmod(member.mode)
-        roots = list(temporary.iterdir())
-        if len(roots) != 1:
-            raise ValueError("Expected one archive directory")
-        root = roots[0]
+        temporary = Path(directory).resolve()
+        root = extract(archive, temporary)
         env = {key: value for key, value in os.environ.items() if not key.startswith("DYLD_")}
         env.update(SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
         result = subprocess.run([str(root / "doom"), str(temporary / "missing.wad")],
