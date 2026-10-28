@@ -174,9 +174,12 @@ Type cheat codes during play, without a console, then release movement keys as n
 | `IDMYPOS` | Toggle position display |
 | `IDELEPHC` | Toggle the elephant trunk in pistol slot 2; fires red/orange elephant projectiles |
 
-`IDELEPHC` selects the pistol slot and replaces it with an animated trunk. The
+`IDELEPHC` selects the pistol slot and replaces it with a low, forward-pointing
+animated trunk. The status-bar portrait becomes an elephant that glances around
+and reacts to health, damage, firing, pickups, invulnerability and death. The
 elephants travel through the level, hit monsters and stop at walls, using the
-pistol's bullets and firing cadence. Type the code again to restore the pistol.
+pistol's bullets and firing cadence. Type the code again to restore the pistol
+and the marine portrait.
 Other weapons keep their behavior. The mode survives map changes and saves;
 starting a new game or restarting after death resets it. Its pixel art is built
 into the executable and uses the loaded WAD's palette, with no extra asset files.
