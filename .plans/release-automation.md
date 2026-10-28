@@ -5,7 +5,7 @@
 - [x] Configure builds and tests for the three desktop hosts with a pinned compiler.
 - [x] Package binaries, provenance and checksums, then publish on version tags.
 - [x] Verify scripts, packaging and native gameplay; document the maintainer flow.
-- [ ] Commit and publish main, and verify its CI run without creating a release tag.
+- [x] Commit and publish main, and verify its CI run without creating a release tag.
 
 The release flow follows the local ggw Makefile and scripts/release.sh pattern.
 `make release` prepares an annotated tag after checking clean, published main;
@@ -32,3 +32,17 @@ archives use ad-hoc signing and do not require unavailable signing secrets.
   retained tags after push failure, archive contents and installer checksum failure.
 - ShellCheck and actionlint pass. A finite SDL dummy-driver run verified the title
   and MUS music with the pinned release compiler.
+
+## Published verification
+
+The native matrix passed on all three hosts in
+[CI run 40681160044](https://github.com/getelephc/doom/actions/runs/40681160044)
+for implementation commit `c3e35c9faa5a897ba30b53332133cd896b0ca546`.
+Each host passed 88 gameplay tests and 775 assertions, plus the 10 release-tool
+regressions, and uploaded an archive and checksum. All three downloaded archives
+were checked for the exact four-file manifest, compiler provenance and SHA-256;
+the macOS binary has the expected ARM64 Mach-O header.
+
+`make release-dry-run` passed against published main and proposed `v0.1.0`.
+No release tag was created. The legacy Elephc subtree publisher (which only
+published DOOM) was disabled on GitHub when standalone main was published.
