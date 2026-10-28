@@ -60,6 +60,9 @@ jobs:
 
       - name: Test macOS archive without Homebrew SDL
         if: runner.os == 'macOS'
+        env:
+          # Keep SDL3 installed until the explicit removal below.
+          HOMEBREW_NO_AUTOREMOVE: '1'
         shell: bash
         run: |
           while IFS= read -r formula; do
