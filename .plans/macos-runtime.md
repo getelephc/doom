@@ -42,5 +42,11 @@ The initial smoke test exposed macOS's `/var` to `/private/var` alias. Extractio
 now resolves its destination before containment checks, with regressions for
 aliased directories, traversal and archive symlinks.
 
-The corrected development archive is available from that CI run. The published
-v0.1.0 release predates this fix and has not been replaced.
+The fix shipped in [v0.1.1](https://github.com/getelephc/doom/releases/tag/v0.1.1)
+from `0df72690fc18ca5ec86d926f31da3daa111995f5`.
+[Release run 40693828961](https://github.com/getelephc/doom/actions/runs/40693828961)
+passed all three native builds and the macOS test without Homebrew SDL. The
+published archives were downloaded and their checksums, manifests and source
+commit verified. The macOS executable imports SDL2 through
+`@loader_path/lib/libSDL2-2.0.0.dylib` and includes SDL3 and both license notices.
+The v0.1.0 release predates this fix and has not been replaced.
