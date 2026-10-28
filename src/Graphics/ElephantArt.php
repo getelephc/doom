@@ -16,12 +16,18 @@ final class ElephantArt {
         $names = []; $pictures = [];
         for ($frame = 0; $frame < 3; $frame++) {
             $names[] = "ELTG" . chr(65 + $frame) . "0";
-            int $recoil = $frame === 1 ? 6 : ($frame === 2 ? 2 : 0);
-            $pictures[] = $this->patch($this->trunk($frame), 64, 80, -128, -88 - $recoil);
+            int $recoil = $frame === 1 ? 4 : ($frame === 2 ? 2 : 0);
+            $pictures[] = $this->patch($this->trunk($frame), 112, 64, -132 - $recoil, -110 - $recoil);
         }
         for ($frame = 0; $frame < 5; $frame++) {
             $names[] = "ELPH" . chr(65 + $frame) . "0";
             $pictures[] = $this->patch($this->elephant($frame), 32, 24, 16, 12);
+        }
+        // Portraits follow the existing projectile frames so save indices stay stable.
+        ElephantFaces $faces = new ElephantFaces();
+        for ($slot = 0; $slot < ElephantFaces::COUNT; $slot++) {
+            $names[] = ElephantFaces::name($slot);
+            $pictures[] = $this->patch($faces->picture($slot), 32, 32, 0, 0);
         }
         $wad->appendLumps($names, $pictures);
     }
@@ -41,34 +47,35 @@ final class ElephantArt {
 
     public function trunk(int $frame): array {
         $rows = [];
-        for ($y = 0; $y < 80; $y++) {
+        for ($y = 0; $y < 64; $y++) {
             string $row = "";
-            for ($x = 0; $x < 64; $x++) {
+            for ($x = 0; $x < 112; $x++) {
                 string $ink = ".";
-                int $center = 30 + intdiv((80 - $y) * (80 - $y), 500);
-                int $half = 10 + intdiv($y, 5);
-                int $dx = $x - $center;
-                if ($y >= 19 && abs($dx) <= $half) {
+                // Foreshortened top/side view: a low curved trunk from the lower
+                // right, with its narrow end aimed into the center of the view.
+                int $along = $x - 28;
+                int $center = 16 + intdiv($along * $along, 95);
+                int $half = 9 + intdiv(max(0, $along), 5);
+                int $dy = $y - $center;
+                if ($along >= 0 && abs($dy) <= $half) {
                     $ink = "0";
-                    if (abs($dx) < $half - 2) {
-                        $ink = $dx < -5 ? "1" : ($dx < 0 ? "2" : ($dx < intdiv($half, 2) ? "3" : "4"));
-                        if ($dx === intdiv($half, 2) - 1) { $ink = "5"; }
-                        // Wrinkles wrap around the trunk, with a lit upper edge.
-                        int $ring = ($y + intdiv(abs($dx), 3)) % 12;
-                        if ($y > 34 && $ring < 2) { $ink = $dx < 0 ? "0" : "2"; }
-                        else if ($y > 34 && $ring === 2 && $dx > 0) { $ink = "5"; }
+                    if (abs($dy) < $half - 2) {
+                        $ink = $dy < -3 ? "4" : ($dy < 2 ? "3" : ($dy < intdiv($half, 2) ? "2" : "1"));
+                        if ($dy === -$half + 3) { $ink = "5"; }
+                        int $fold = ($along + intdiv(abs($dy), 3)) % 13;
+                        if ($along > 9 && $fold === 0) { $ink = $dy > 0 ? "0" : "2"; }
+                        else if ($along > 9 && $fold === 1 && $dy < 0) { $ink = "5"; }
                     }
                 }
-                int $mx = $x - 39; int $my = $y - 19;
-                int $rim = $mx * $mx * 81 + $my * $my * 225;
-                if ($rim <= 18225) {
+                // The end is seen from the side, not as an upward-facing funnel.
+                int $mx = $x - 28; int $my = $y - 16;
+                int $rim = $mx * $mx * 100 + $my * $my * 49;
+                if ($rim <= 4900) {
                     $ink = "0";
-                    if ($rim < 14500) { $ink = $my < -2 ? "5" : "3"; }
-                    if ($rim < 9000) { $ink = "1"; }
-                    // Two dark nostrils make the muzzle read as a trunk.
-                    if (($mx + 5) * ($mx + 5) + $my * $my * 2 < 25
-                        || ($mx - 5) * ($mx - 5) + $my * $my * 2 < 25) { $ink = "7"; }
-                    if ($frame === 1 && $rim >= 9000 && $rim < 14500) { $ink = "6"; }
+                    if ($rim < 3600) { $ink = $my < -2 ? "4" : "2"; }
+                    if ($mx < -1 && $rim < 2400) { $ink = "1"; }
+                    if ($mx >= -4 && $mx <= -2 && (abs($my - 4) < 2 || abs($my + 4) < 2)) { $ink = "7"; }
+                    if ($frame === 1 && $mx > 0 && $my < -3 && $rim < 3600) { $ink = "5"; }
                 }
                 $row .= $ink;
             }
