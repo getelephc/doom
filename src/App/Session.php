@@ -100,7 +100,10 @@ final class Session {
             return false;
         }
         $this->say("Loaded WAD: " . $this->wad->kind . " | lumps: " . $this->wad->lumpCount);
-        if (!$this->palette->load($this->wad)) { return false; }
+        if (!$this->palette->load($this->wad)) {
+            $this->say("The WAD lacks PLAYPAL, textures, flats or sprites");
+            return false;
+        }
         ElephantArt $art = new ElephantArt();
         $art->install($this->wad, $this->palette);
         if (!$this->textures->load($this->wad) || !$this->flats->load($this->wad) || !$this->sprites->load($this->wad)) {
