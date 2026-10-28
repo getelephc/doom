@@ -83,17 +83,17 @@ The engine is written from the public descriptions of the WAD format and of how 
 Version tags publish native archives through [GitHub Releases](https://github.com/getelephc/doom/releases).
 The supported desktop targets are Linux x86_64, Linux ARM64 and macOS ARM64.
 Archives contain `doom`, this README, the MIT license and `BUILD-INFO.txt` with
-the source commit and compiler version. A `checksums.txt` file accompanies each
+the source commit and compiler version. macOS archives also include their SDL
+runtime in `lib/` and dependency notices in `licenses/`; keep these directories
+next to the executable. A `checksums.txt` file accompanies each
 release. WADs and save files stay on the player's machine.
 
-Install SDL2 before running a downloaded binary:
+The macOS archive includes SDL2 and its required runtime libraries, so Homebrew
+is not needed to run it. Linux archives use the system SDL2 library. On Debian
+or Ubuntu, install it before running:
 
 ```bash
-# Debian / Ubuntu
 sudo apt-get install libsdl2-2.0-0
-
-# macOS with Homebrew
-brew install sdl2
 ```
 
 Extract the archive for your host, enter its directory, then run

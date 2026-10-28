@@ -58,6 +58,17 @@ jobs:
       - name: Build and package
         run: make package
 
+      - name: Test macOS archive without Homebrew SDL
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          while IFS= read -r formula; do
+            case "$formula" in
+              sdl2|sdl2-compat|sdl3) brew uninstall --force --ignore-dependencies "$formula" ;;
+            esac
+          done < <(brew list --formula)
+          python3 scripts/check_macos_package.py dist/doom_*_macos_aarch64.tar.gz
+
       - name: Upload native archive and checksum
         uses: actions/upload-artifact@v7
         with:

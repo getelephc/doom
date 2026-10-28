@@ -7,10 +7,12 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(SOURCE / "scripts"))
 SPEC = importlib.util.spec_from_file_location("doom_package", SOURCE / "scripts/package.py")
 PACKAGER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PACKAGER)

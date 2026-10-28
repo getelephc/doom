@@ -41,3 +41,9 @@ semantic version and asks before creating and pushing an annotated tag. Use
 `make release-dry-run` to inspect the operation and `make package VERSION=0.1.0`
 to inspect an archive locally. The Release workflow tests all desktop hosts
 before publishing archives and checksums. Do not commit WADs or release archives.
+
+macOS packaging stages SDL2 and any non-system dylibs, includes their license
+notices and rewrites their load paths before ad-hoc signing. When Homebrew uses
+sdl2-compat, SDL3 is bundled explicitly because it is loaded with dlopen. CI
+uninstalls the SDL kegs before testing the extracted archive. Linux continues to
+use system SDL2. Keep packaging independent of the player's WAD and saves.

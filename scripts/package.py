@@ -11,6 +11,8 @@ import subprocess
 import tarfile
 import tempfile
 
+from macos_runtime import bundle as bundle_macos
+
 
 def desktop_target(system, machine):
     targets = {
@@ -33,8 +35,6 @@ def package(root, output, version, compiler):
     binary = root / "main"
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise ValueError("Build the game before packaging")
-    if platform.system() == "Darwin":
-        subprocess.run(["codesign", "--force", "--sign", "-", str(binary)], check=True)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     epoch = int(subprocess.check_output(["git", "show", "-s", "--format=%ct", "HEAD"], cwd=root))
     compiler_version = subprocess.check_output([compiler, "--version"], text=True).strip()
@@ -47,6 +47,14 @@ def package(root, output, version, compiler):
         "BUILD-INFO.txt": (provenance.encode(), 0o644),
     }
     output.mkdir(parents=True, exist_ok=True)
+    if platform.system() == "Darwin":
+        with tempfile.TemporaryDirectory(dir=output, prefix=".doom-runtime-") as directory:
+            stage = Path(directory)
+            bundle_macos(binary, stage)
+            for path in stage.rglob("*"):
+                if path.is_file():
+                    relative = path.relative_to(stage).as_posix()
+                    entries[relative] = (path.read_bytes(), 0o644 if relative.startswith("licenses/") else 0o755)
     archive = output / f"{prefix}.tar.gz"
     temporary = None
     try:
