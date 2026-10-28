@@ -1,6 +1,6 @@
 # Elephant cheat
 
-- [x] Add embedded palette-matched trunk, elephant and impact patches.
+- [x] Add embedded palette-matched rear-head, elephant and impact patches.
 - [x] Implement IDELEPHC as a reversible pistol mode with real projectiles.
 - [x] Preserve mode and in-flight projectiles in saves and across maps.
 - [x] Test firing, collisions, rendering, resets and legacy saves.
@@ -14,10 +14,8 @@ new sprite/type records are appended so existing save indices stay stable.
 
 ## Local validation
 
-The pinned elephc 0.27.6 compiler passes all 98 gameplay tests (832 assertions),
-including 10 new elephant regressions, and the 16 release-tooling tests. The
-native SDL game builds successfully. Real shareware E1M1 frames were inspected
-at rest and during firing, showing the trunk, recoil and flying elephants.
+The initial implementation passed 98 gameplay tests (832 assertions), including
+10 elephant regressions, and the 16 release-tooling tests with elephc 0.27.6.
 
 [Native CI run 40700243717](https://github.com/getelephc/doom/actions/runs/40700243717)
 passed on Linux x86_64, Linux ARM64 and macOS ARM64 at
@@ -26,7 +24,7 @@ startup and SDL initialization check after removing the Homebrew SDL kegs.
 
 ## Visual revision
 
-- [x] Redraw the weapon as a low, curved trunk aimed forward from the lower right.
+- [x] Show a small rear-view elephant head low in the view, with broad flapping ears.
 - [x] Add an elephant HUD portrait while IDELEPHC is active.
 - [x] Cover glances, five health bands, firing, damage, pickups, god mode and death.
 - [x] Check portrait bounds, toggle restoration, saves and real E1M1 frames.
@@ -36,6 +34,10 @@ patches and use names excluded from the sprite-frame catalog. This keeps existin
 saved projectile definitions stable. Expressions use the player's existing state;
 no new save fields or random stream are needed. Five new HUD regressions cover
 the expression priorities, health bands, frame bounds, save restoration and the
-trunk's low silhouette. E1M1 idle/firing frames and a portrait sheet were inspected.
-The two elephant test classes pass locally (15 tests, 88 assertions), and the
-native SDL executable was rebuilt with this revision.
+weapon's low silhouette. Real E1M1 idle/firing frames and a portrait sheet were
+inspected. The two elephant test classes pass locally (15 tests, 93 assertions),
+and the native SDL executable was rebuilt with this revision.
+
+The weapon shows only the back of a rounded head and its ears. Its existing lump
+names and frame order are preserved so saved sprite references remain stable.
+The placement regression checks both ears and leaves the upper view clear.

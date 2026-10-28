@@ -172,11 +172,12 @@ Type cheat codes during play, without a console, then release movement keys as n
 | `IDCLEVxy` | Warp to episode x, mission y, if present in the WAD |
 | `IDMUSxy` | Select an available episode/mission music track |
 | `IDMYPOS` | Toggle position display |
-| `IDELEPHC` | Toggle the elephant trunk in pistol slot 2; fires red/orange elephant projectiles |
+| `IDELEPHC` | Toggle elephant mode in pistol slot 2; fires red/orange elephant projectiles |
 
-`IDELEPHC` selects the pistol slot and replaces it with a low, forward-pointing
-animated trunk. The status-bar portrait becomes an elephant that glances around
-and reacts to health, damage, firing, pickups, invulnerability and death. The
+`IDELEPHC` selects the pistol slot and shows an elephant's head from behind,
+low in the view, with ears that flap when firing. The status-bar portrait becomes
+an elephant that glances around and reacts to health, damage, firing, pickups,
+invulnerability and death. The
 elephants travel through the level, hit monsters and stop at walls, using the
 pistol's bullets and firing cadence. Type the code again to restore the pistol
 and the marine portrait.

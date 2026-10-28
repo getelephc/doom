@@ -109,7 +109,7 @@ final class ElephantHudTest extends SessionCase {
         $this->assertSameString($hurt, $this->portrait($s));
     }
 
-    public function testTrunkHasALowForwardSilhouette(): void {
+    public function testRearHeadStaysLowAndHasTwoWideEars(): void {
         $s = $this->boot();
         $s->cheats->feed($s, "idelephc");
         $screen = $s->renderer->screen;
@@ -125,6 +125,12 @@ final class ElephantHudTest extends SessionCase {
         $this->assertTrue($top >= 115);
         $this->assertTrue($right - $left > $bottom - $top);
         $this->assertTrue($right - $left >= 80);
+        // The ears flank a centered head, with an open gap above each shoulder.
+        $this->assertTrue($left < 130 && $right > 190);
+        $this->assertTrue($screen->pixels[140 * 320 + 132] !== 254);
+        $this->assertTrue($screen->pixels[140 * 320 + 188] !== 254);
+        $this->assertTrue($screen->pixels[118 * 320 + 132] === 254);
+        $this->assertTrue($screen->pixels[118 * 320 + 188] === 254);
     }
 
     protected function status(Session $s): string {

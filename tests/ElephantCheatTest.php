@@ -84,7 +84,7 @@ final class ElephantCheatTest extends CombatCase {
         $this->assertSameInt(6, $s->things->mobjs[0]->state);
     }
 
-    public function testTrunkAnimatesAndOtherWeaponsKeepTheirArt(): void {
+    public function testElephantHeadAnimatesAndOtherWeaponsKeepTheirArt(): void {
         $s = $this->boot();
         string $pistol = $this->weaponFrame($s);
         $s->cheats->feed($s, "idelephc");

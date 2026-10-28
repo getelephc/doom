@@ -15,9 +15,10 @@ final class ElephantArt {
         foreach ($ramp as $rgb) { $this->colors[] = $this->nearest($palette, (int)$rgb); }
         $names = []; $pictures = [];
         for ($frame = 0; $frame < 3; $frame++) {
+            // Preserve the existing lump names and frame order for saved indices.
             $names[] = "ELTG" . chr(65 + $frame) . "0";
-            int $recoil = $frame === 1 ? 4 : ($frame === 2 ? 2 : 0);
-            $pictures[] = $this->patch($this->trunk($frame), 112, 64, -132 - $recoil, -110 - $recoil);
+            int $recoil = $frame === 1 ? 3 : ($frame === 2 ? 1 : 0);
+            $pictures[] = $this->patch($this->rearHead($frame), 88, 64, -116, -110 - $recoil);
         }
         for ($frame = 0; $frame < 5; $frame++) {
             $names[] = "ELPH" . chr(65 + $frame) . "0";
@@ -45,37 +46,42 @@ final class ElephantArt {
         return $best;
     }
 
-    public function trunk(int $frame): array {
+    public function rearHead(int $frame): array {
         $rows = [];
         for ($y = 0; $y < 64; $y++) {
             string $row = "";
-            for ($x = 0; $x < 112; $x++) {
+            for ($x = 0; $x < 88; $x++) {
                 string $ink = ".";
-                // Foreshortened top/side view: a low curved trunk from the lower
-                // right, with its narrow end aimed into the center of the view.
-                int $along = $x - 28;
-                int $center = 16 + intdiv($along * $along, 95);
-                int $half = 9 + intdiv(max(0, $along), 5);
-                int $dy = $y - $center;
-                if ($along >= 0 && abs($dy) <= $half) {
+                // Broad, scalloped ears frame the back of the head. On firing,
+                // they spread slightly while the entire head recoils downward.
+                int $flap = $frame === 1 ? 2 : ($frame === 2 ? 1 : 0);
+                int $side = $x < 44 ? $x : 87 - $x;
+                int $ex = $side - 19 + $flap;
+                int $ey = $y - 31;
+                int $ear = $ex * $ex * 484 + $ey * $ey * 289;
+                bool $notch = $side < 10 && $y > 42;
+                if ($ear <= 139876 && !$notch) {
                     $ink = "0";
-                    if (abs($dy) < $half - 2) {
-                        $ink = $dy < -3 ? "4" : ($dy < 2 ? "3" : ($dy < intdiv($half, 2) ? "2" : "1"));
-                        if ($dy === -$half + 3) { $ink = "5"; }
-                        int $fold = ($along + intdiv(abs($dy), 3)) % 13;
-                        if ($along > 9 && $fold === 0) { $ink = $dy > 0 ? "0" : "2"; }
-                        else if ($along > 9 && $fold === 1 && $dy < 0) { $ink = "5"; }
+                    if ($ear < 118000) {
+                        $ink = $ey < -8 ? "3" : "2";
+                        if ($side > 25) { $ink = "1"; }
+                        if ($ey < -15 && $side > 12 && $side < 24) { $ink = "4"; }
+                        int $fold = 35 + intdiv(abs($ex), 2);
+                        if ($y === $fold && $side < 26) { $ink = "1"; }
                     }
                 }
-                // The end is seen from the side, not as an upward-facing funnel.
-                int $mx = $x - 28; int $my = $y - 16;
-                int $rim = $mx * $mx * 100 + $my * $my * 49;
-                if ($rim <= 4900) {
+                // A rounded crown and nape are all that the rear view exposes.
+                int $hx = $x - 44; int $hy = $y - 42;
+                int $head = $hx * $hx * 676 + $hy * $hy * 625;
+                if ($head <= 422500) {
                     $ink = "0";
-                    if ($rim < 3600) { $ink = $my < -2 ? "4" : "2"; }
-                    if ($mx < -1 && $rim < 2400) { $ink = "1"; }
-                    if ($mx >= -4 && $mx <= -2 && (abs($my - 4) < 2 || abs($my + 4) < 2)) { $ink = "7"; }
-                    if ($frame === 1 && $mx > 0 && $my < -3 && $rim < 3600) { $ink = "5"; }
+                    if ($head < 377000) {
+                        $ink = $hx < -12 || $hy > 12 ? "2" : "3";
+                        int $shineX = $hx - 7; int $shineY = $hy + 10;
+                        int $shine = $shineX * $shineX * 196 + $shineY * $shineY * 144;
+                        if ($shine < 28224) { $ink = "4"; }
+                        if ($shine < 3500 && $shineY < 0) { $ink = "5"; }
+                    }
                 }
                 $row .= $ink;
             }

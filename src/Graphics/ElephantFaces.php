@@ -2,7 +2,7 @@
 
 namespace Showcases\Doom\Graphics;
 
-// A 32x32 elephant portrait in the same indexed ramp as the trunk. All poses are
+// A 32x32 elephant portrait in the same indexed ramp as the weapon. All poses are
 // generated at boot; the HUD only selects a cached patch from current game state.
 final class ElephantFaces {
     public const HURT = 15;
