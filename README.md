@@ -133,34 +133,6 @@ make test   # synthetic-WAD gameplay suite
 
 The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, enemies, barrels, weapon pictures, PCM samples and light tables that keep every color). It checks every weapon and monster family, cheats, power-ups, difficulty, boss actions, sound propagation, projectiles, explosions, stereo mixing, MUS parsing, map changes, stairs, donut floors, crushers, teleporters, pickups, save validation, menu pause and rendered frames. Make supplies the 128 MiB heap required by the larger synthetic full-asset fixture. A complete level-flow test fires the weapon, walks across the map, uses the exit and confirms the intermission. This repository's CI tests and builds all three desktop targets on pushes and pull requests, using the compiler pinned in `.elephc-version`.
 
-## Making a release
-
-From a clean `main` that is already published to `origin`, run:
-
-```bash
-make release-dry-run       # propose and validate the next version
-make release               # choose a version and confirm the tag push
-# Or choose the version up front:
-make release VERSION=0.1.0
-```
-
-The helper follows the same flow as ggw: propose the next patch version (starting
-at `v0.1.0`), create an annotated tag, then push that tag. It requires Git and an
-authenticated GitHub CLI. GitHub Actions validates the tag, tests and builds Linux
-x86_64, Linux ARM64 and macOS ARM64, and publishes all three archives together
-with SHA-256 checksums and generated release notes. A failed upload can resume
-from the draft release without replacing an already published version.
-
-To inspect a local archive without publishing anything:
-
-```bash
-make package VERSION=0.1.0
-```
-
-Output goes to `dist/`, for example `doom_0.1.0_linux_x86_64.tar.gz` and its
-`.sha256` file. `make clean` removes local compiler outputs. Release archives
-keep SDL2 as an external runtime dependency.
-
 ## Controls
 
 | Key | Action |
