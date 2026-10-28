@@ -11,7 +11,7 @@ final class SaveGame {
 
     public function fingerprint(Session $s): string {
         if ($this->wadHash === "") {
-            $this->wadHash = hash("sha256", ptr_read_string(buffer_ptr($s->wad->data), $s->wad->size));
+            $this->wadHash = hash("sha256", ptr_read_string(buffer_ptr($s->wad->data), $s->wad->sourceSize));
         }
         return $this->wadHash;
     }
@@ -31,7 +31,8 @@ final class SaveGame {
         for ($i = 0; $i < $s->things->count * 4; $i++) { $frames[] = $s->things->frameDefinition[$i]; }
         $c = $s->combat;
         $data = ["version" => 1, "wad" => $this->fingerprint($s), "map" => $s->mapName, "skill" => $s->config->skill,
-            "time" => $s->levelTime, "player" => $this->records->readPlayer($s->player), "objects" => $objects,
+            "time" => $s->levelTime, "elephant" => $s->player->elephantMode,
+            "player" => $this->records->readPlayer($s->player), "objects" => $objects,
             "sectors" => $sectors, "sides" => $sides, "lines" => $lines, "movers" => $movers, "lights" => $lights,
             "buttons" => $buttons, "secrets" => $secrets, "frames" => $frames,
             "combat" => [$c->seed, $c->kills, $c->totalKills, $c->items, $c->totalItems, $c->secrets, $c->totalSecrets, (int)$c->bossTriggered, $s->specials->seed, $c->clock]];
@@ -81,6 +82,7 @@ final class SaveGame {
         $decoded = json_decode($json, true);
         if (!is_array($decoded)) { return false; }
         array $d = (array)$decoded;
+        if (array_key_exists("elephant", $d) && !is_bool($d["elephant"])) { return false; }
         if (($d["version"] ?? 0) !== 1 || ($d["wad"] ?? "") !== $this->fingerprint($s) || !is_string($d["map"] ?? null)) { return false; }
         string $mapName = (string)$d["map"];
         if (strlen($mapName) !== 4 || $mapName[0] !== "E" || $mapName[2] !== "M" || $mapName[1] < "1" || $mapName[1] > "4" || $mapName[3] < "1" || $mapName[3] > "9") { return false; }
@@ -151,6 +153,7 @@ final class SaveGame {
 
     public function restore(Session $s, array $d): void {
         $this->records->writePlayer($s->player, (array)$d["player"]);
+        $s->player->elephantMode = (bool)($d["elephant"] ?? false);
         $s->player->availableWeapons = $s->renderer->weapons->available;
         $s->levelTime = (int)$d["time"];
         array $rows = (array)$d["objects"];

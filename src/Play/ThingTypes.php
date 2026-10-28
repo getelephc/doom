@@ -128,6 +128,8 @@ final class ThingTypes {
             [62, "GOR5", "A", 1, 0, 0, 20, 52, 0, 1],
             [63, "GOR1", "A", 3, 10, 0, 20, 68, 0, 1],
         ];
+        // Append custom kinds so old savegame kind indices remain valid.
+        $rows[] = [6009, "ELPH", "A", 2, 4, 1, 6, 8, 0, 0];
         int $count = count($rows);
         $this->count = $count;
         $this->type = buffer_new<int>($count);

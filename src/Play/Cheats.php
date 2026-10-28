@@ -24,7 +24,15 @@ final class Cheats {
     public function apply(Session $s): void {
         Player $p = $s->player;
         string $message = "";
-        if (str_ends_with($this->tail, "iddqd")) {
+        if (str_ends_with($this->tail, "idelephc")) {
+            $p->elephantMode = !$p->elephantMode;
+            $message = "ELEPHC MODE OFF";
+            if ($p->elephantMode) {
+                $p->weapons |= 4;
+                $p->pendingWeapon = 2;
+                $message = "ELEPHC MODE ON";
+            }
+        } else if (str_ends_with($this->tail, "iddqd")) {
             $p->godMode = !$p->godMode;
             $message = "GOD MODE OFF";
             if ($p->godMode) {
