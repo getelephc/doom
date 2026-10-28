@@ -39,7 +39,7 @@
 
 The engine is written from the public descriptions of the WAD format and of how DOOM draws and moves (the Unofficial DOOM Specs and the DoomWiki), not translated from DOOM's source code.
 
-> This showcase is developed in [illegalstudio/elephc](https://github.com/illegalstudio/elephc/tree/main/showcases/doom). [getelephc/doom](https://github.com/getelephc/doom) is a read-only mirror published from there, so send changes to elephc.
+> This repository is the source of truth for the DOOM engine. Open issues and pull requests here. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
 
 ## What it does
 
@@ -90,7 +90,7 @@ elephc -l SDL2 --heap-size=134217728 main.php
 ./main
 ```
 
-On macOS with Homebrew, add `-L /opt/homebrew/lib` if SDL2 is outside the default library search path. In the elephc repository, compile `showcases/doom/main.php` from its root and run `./showcases/doom/main`.
+On macOS with Homebrew, add `-L /opt/homebrew/lib` if SDL2 is outside the default library search path. Build and run from this repository's root.
 
 ```bash
 ./main /path/to/DOOM.WAD       # title and episode menu
@@ -107,9 +107,7 @@ Download the shareware WAD: search for "DOOM1.WAD shareware" or extract it from 
 elephc test tests --heap-size=134217728
 ```
 
-In the elephc repository, run `elephc test showcases/doom/tests --heap-size=134217728` from its root.
-
-The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, enemies, barrels, weapon pictures, PCM samples and light tables that keep every color). It checks every weapon and monster family, cheats, power-ups, difficulty, boss actions, sound propagation, projectiles, explosions, stereo mixing, MUS parsing, map changes, stairs, donut floors, crushers, teleporters, pickups, save validation, menu pause and rendered frames. The larger synthetic full-asset fixture requires the explicit 128 MiB heap above. A complete level-flow test fires the weapon, walks across the map, uses the exit and confirms the intermission. elephc's CI runs it on every pull request, and the mirror's CI runs it against the elephc nightly on every push.
+The suite needs neither SDL nor `DOOM1.WAD`: it writes a small WAD of its own (two rooms joined by a grate, enemies, barrels, weapon pictures, PCM samples and light tables that keep every color). It checks every weapon and monster family, cheats, power-ups, difficulty, boss actions, sound propagation, projectiles, explosions, stereo mixing, MUS parsing, map changes, stairs, donut floors, crushers, teleporters, pickups, save validation, menu pause and rendered frames. The larger synthetic full-asset fixture requires the explicit 128 MiB heap above. A complete level-flow test fires the weapon, walks across the map, uses the exit and confirms the intermission. This repository's CI runs it against the elephc nightly on pushes and pull requests.
 
 ## Controls
 

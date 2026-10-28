@@ -350,10 +350,6 @@ final class Session {
         if (file_exists($this->config->wadPath)) {
             return $this->config->wadPath;
         }
-        string $repoRelative = "showcases/doom/" . $this->config->wadPath;
-        if (file_exists($repoRelative)) {
-            return $repoRelative;
-        }
         return "";
     }
 }

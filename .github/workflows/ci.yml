@@ -1,11 +1,7 @@
 name: CI
 
-# Runs in the getelephc/doom mirror, where this directory is the repository root. In the
-# elephc repository this file is inert (GitHub reads workflows only from the root
-# .github), and elephc's own CI runs the same suite with the compiler it builds.
-#
-# The suite runs against the elephc nightly: this directory follows elephc's `main`, so it
-# may use compiler features that no tagged release has yet.
+# This standalone repository owns the engine and its synthetic-WAD regression suite.
+# Use the elephc nightly so new compiler features can be exercised independently.
 
 on:
   push:
@@ -47,6 +43,5 @@ jobs:
         run: elephc --version
 
       - name: Test
-        # Map changes, specials, pickups and rendering against a small WAD the tests write
-        # themselves: no SDL, display or DOOM1.WAD needed.
-        run: elephc test tests
+        # Synthetic assets cover gameplay, saves, input and audio without SDL or a WAD.
+        run: elephc test tests --heap-size=134217728
