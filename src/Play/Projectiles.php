@@ -29,6 +29,7 @@ final class Projectiles {
         else if ($type === 6004) { $speed = 25; $damage = 100; }
         else if ($type === 6005) { $speed = 15; $damage = 8; }
         else if ($type === 6006) { $damage = 5; }
+        else if ($type === 6009) { $speed = 16; $damage = 3; }
         $m[$slot]->active = 1;
         $m[$slot]->type = $type;
         $m[$slot]->kind = $kind;

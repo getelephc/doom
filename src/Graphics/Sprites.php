@@ -32,7 +32,7 @@ final class Sprites {
         if ($start < 0 || $end <= $start) {
             return false;
         }
-        int $capacity = $end - $start;
+        int $capacity = $end - $start + $wad->lumpCount - $wad->sourceLumpCount;
         int $rotationSlots = $capacity * 8;
         buffer<int> $oldSpriteKey = $this->spriteKey;
         buffer_free($oldSpriteKey);
@@ -49,36 +49,47 @@ final class Sprites {
         $this->rotated = buffer_new<int>($capacity);
         $this->lump = buffer_new<int>($rotationSlots);
         $this->flip = buffer_new<int>($rotationSlots);
+        $this->count = 0;
         for ($slot = 0; $slot < $rotationSlots; $slot++) {
             $this->lump[$slot] = -1;
         }
 
         int $firstLump = $start + 1;
         for ($lump = $firstLump; $lump < $end; $lump++) {
-            int $key = $wad->lumpKey[$lump];
-            int $sprite = $key & 4294967295;
-            int $frameShift = $key >> 32;
-            int $frameLetter = $frameShift & 255;
-            int $rotationShift = $key >> 40;
-            int $rotationDigit = $rotationShift & 255;
-            if ($frameLetter < 65 || $rotationDigit < 48 || $rotationDigit > 56) {
-                continue;
-            }
-            int $frameIndex = $frameLetter - 65;
-            int $rotation = $rotationDigit - 48;
-            $this->assign($sprite, $frameIndex, $rotation, $lump, 0);
-
-            int $mirrorFrameShift = $key >> 48;
-            int $mirrorFrame = $mirrorFrameShift & 255;
-            int $mirrorRotationShift = $key >> 56;
-            int $mirrorRotationDigit = $mirrorRotationShift & 255;
-            if ($mirrorFrame >= 65 && $mirrorRotationDigit >= 48 && $mirrorRotationDigit <= 56) {
-                int $mirrorIndex = $mirrorFrame - 65;
-                int $mirrorRotation = $mirrorRotationDigit - 48;
-                $this->assign($sprite, $mirrorIndex, $mirrorRotation, $lump, 1);
-            }
+            $this->loadLump($wad, $lump);
         }
-        return $this->count > 0;
+        bool $hasSprites = $this->count > 0;
+        // Built-in pictures live after the original directory, without changing
+        // the WAD file or the indices of its original sprite definitions.
+        for ($lump = $wad->sourceLumpCount; $lump < $wad->lumpCount; $lump++) {
+            $this->loadLump($wad, $lump);
+        }
+        return $hasSprites;
+    }
+
+    public function loadLump(Wad $wad, int $lump): void {
+        int $key = $wad->lumpKey[$lump];
+        int $sprite = $key & 4294967295;
+        int $frameShift = $key >> 32;
+        int $frameLetter = $frameShift & 255;
+        int $rotationShift = $key >> 40;
+        int $rotationDigit = $rotationShift & 255;
+        if ($frameLetter < 65 || $rotationDigit < 48 || $rotationDigit > 56) {
+            return;
+        }
+        int $frameIndex = $frameLetter - 65;
+        int $rotation = $rotationDigit - 48;
+        $this->assign($sprite, $frameIndex, $rotation, $lump, 0);
+
+        int $mirrorFrameShift = $key >> 48;
+        int $mirrorFrame = $mirrorFrameShift & 255;
+        int $mirrorRotationShift = $key >> 56;
+        int $mirrorRotationDigit = $mirrorRotationShift & 255;
+        if ($mirrorFrame >= 65 && $mirrorRotationDigit >= 48 && $mirrorRotationDigit <= 56) {
+            int $mirrorIndex = $mirrorFrame - 65;
+            int $mirrorRotation = $mirrorRotationDigit - 48;
+            $this->assign($sprite, $mirrorIndex, $mirrorRotation, $lump, 1);
+        }
     }
 
     public function assign(int $sprite, int $frameIndex, int $rotation, int $lump, int $flip): void {

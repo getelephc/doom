@@ -12,9 +12,14 @@ final class WeaponRenderer {
     public Wad $wad;
     public buffer<int> $patches;
     public int $available;
+    public buffer<int> $elephantHead;
 
     public function __construct(Wad $wad) {
         $this->wad = $wad;
+        $this->elephantHead = buffer_new<int>(3);
+        for ($f = 0; $f < 3; $f++) {
+            $this->elephantHead[$f] = $wad->find("ELTG" . chr(65 + $f) . "0");
+        }
         $this->patches = buffer_new<int>(90);
         $prefixes = ["", "PUNG", "PISG", "SHTG", "CHGG", "MISG", "PLSG", "BFGG", "SAWG"];
         for ($weapon = 1; $weapon < 9; $weapon++) {
@@ -87,6 +92,14 @@ final class WeaponRenderer {
         int $bob = min(4, intdiv($speed, 3));
         int $x = ($trig->cos($tic * 409) * $bob) >> 16;
         int $y = abs(($trig->sin($tic * 409) * $bob) >> 16);
+        if ($player->weapon === 2 && $player->elephantMode) {
+            int $headFrame = 0;
+            if ($player->weaponCooldown > 0 && $player->weaponAge < 9) {
+                $headFrame = $player->weaponAge < 5 ? 1 : 2;
+            }
+            $screen->drawPatch($this->wad, $this->elephantHead[$headFrame], $x, $y);
+            return;
+        }
         int $slot = $base + $frame;
         int $patch = $this->patches[$slot];
         if ($patch < 0) {

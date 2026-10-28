@@ -52,6 +52,11 @@ final class Weapons {
                 $c->sounds->play($hit >= 0 ? Sounds::SAW_HIT : Sounds::SAW_FULL);
             } else if ($hit >= 0) { $c->sounds->play(Sounds::PUNCH); }
             if ($hit >= 0) { $c->noise(); }
+        } else if ($w === 2 && $p->elephantMode) {
+            $p->bullets--;
+            $p->weaponCooldown = 14;
+            $this->launch($p, $c, 6009);
+            $c->sounds->play(Sounds::PISTOL);
         } else if ($w === 2 || $w === 4) {
             $p->bullets--;
             $p->weaponCooldown = $w === 2 ? 14 : 4;

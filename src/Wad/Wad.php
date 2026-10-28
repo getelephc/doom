@@ -8,6 +8,9 @@ namespace Showcases\Doom\Wad;
 final class Wad {
     public buffer<u8> $data;
     public int $size;
+    // Original file boundaries exclude generated art from save fingerprints.
+    public int $sourceSize = 0;
+    public int $sourceLumpCount = 0;
     public string $kind;
     public int $lumpCount;
     public buffer<int> $lumpOffset;
@@ -42,6 +45,7 @@ final class Wad {
         $this->data = buffer_new<u8>($size);
         ptr_write_string(buffer_ptr($this->data), $bytes);
         $this->size = $size;
+        $this->sourceSize = $size;
         int $magic = $this->keyAt(0);
         int $kindKey = $magic & 4294967295;
         $this->kind = $this->nameFromKey($kindKey);
@@ -57,6 +61,7 @@ final class Wad {
             return false;
         }
         $this->lumpCount = $count;
+        $this->sourceLumpCount = $count;
         buffer<int> $oldOffset = $this->lumpOffset;
         buffer_free($oldOffset);
         buffer<int> $oldSize = $this->lumpSize;
@@ -76,6 +81,44 @@ final class Wad {
             $this->lumpKey[$i] = $this->keyAt($nameAt);
         }
         return true;
+    }
+
+    // Append built-in pictures before any renderer caches the WAD's buffers.
+    // Existing lump indices and the original file prefix remain unchanged.
+    public function appendLumps(array $names, array $pictures): void {
+        string $bytes = ptr_read_string(buffer_ptr($this->data), $this->size);
+        int $count = $this->lumpCount + count($names);
+        buffer<int> $offsets = buffer_new<int>($count);
+        buffer<int> $sizes = buffer_new<int>($count);
+        buffer<int> $keys = buffer_new<int>($count);
+        for ($i = 0; $i < $this->lumpCount; $i++) {
+            $offsets[$i] = $this->lumpOffset[$i];
+            $sizes[$i] = $this->lumpSize[$i];
+            $keys[$i] = $this->lumpKey[$i];
+        }
+        for ($i = 0; $i < count($names); $i++) {
+            int $slot = $this->lumpCount + $i;
+            string $picture = (string)$pictures[$i];
+            $offsets[$slot] = strlen($bytes);
+            $sizes[$slot] = strlen($picture);
+            $keys[$slot] = $this->key((string)$names[$i]);
+            $bytes .= $picture;
+        }
+        buffer<u8> $oldData = $this->data;
+        buffer<int> $oldOffsets = $this->lumpOffset;
+        buffer<int> $oldSizes = $this->lumpSize;
+        buffer<int> $oldKeys = $this->lumpKey;
+        $this->size = strlen($bytes);
+        $this->data = buffer_new<u8>($this->size);
+        ptr_write_string(buffer_ptr($this->data), $bytes);
+        $this->lumpOffset = $offsets;
+        $this->lumpSize = $sizes;
+        $this->lumpKey = $keys;
+        $this->lumpCount = $count;
+        buffer_free($oldData);
+        buffer_free($oldOffsets);
+        buffer_free($oldSizes);
+        buffer_free($oldKeys);
     }
 
     public function u8(int $offset): int {

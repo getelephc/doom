@@ -26,6 +26,8 @@ require_once 'Audio/Sounds.php';
 
 require_once 'Graphics/Animations.php';
 require_once 'Graphics/Palette.php';
+require_once 'Graphics/ElephantFaces.php';
+require_once 'Graphics/ElephantArt.php';
 require_once 'Graphics/Textures.php';
 require_once 'Graphics/Flats.php';
 require_once 'Graphics/Sprites.php';

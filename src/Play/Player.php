@@ -59,6 +59,7 @@ final class Player {
     public int $selectionHeld;
     public int $sawClock;
     public bool $fireHeld;
+    public bool $elephantMode = false;
 
     public function __construct() {
         $this->x = 0;
@@ -98,6 +99,7 @@ final class Player {
         $this->maxCells = 300;
         $this->backpack = false;
         $this->godMode = false;
+        $this->elephantMode = false;
         $this->noclip = false;
         $this->berserk = false;
         $this->fullMap = false;
