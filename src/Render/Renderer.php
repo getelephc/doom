@@ -86,7 +86,7 @@ final class Renderer {
             $this->world->renderSubSector($order[$o]);
         }
         $this->world->finishFrame();
-        $this->spriteRenderer->render($things, $tic);
+        $this->spriteRenderer->render($things, $tic, $player->elephantMode);
         $this->world->drawMaskedSegs();
         $this->weapons->draw($this->screen, $player, $this->trig, $tic);
         $this->hud->drawStatusBar($player);

@@ -30,7 +30,7 @@ final class Cheats {
             if ($p->elephantMode) {
                 $p->weapons |= 4;
                 $p->pendingWeapon = 2;
-                $message = "ELEPHC MODE ON";
+                $message = "ELEPHC FEEDING TIME!";
             }
         } else if (str_ends_with($this->tail, "iddqd")) {
             $p->godMode = !$p->godMode;

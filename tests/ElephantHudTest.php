@@ -31,17 +31,17 @@ final class ElephantHudTest extends SessionCase {
         return $s;
     }
 
-    public function testElephantReplacesOnlyThePortraitAndTogglesBackToTheMarine(): void {
+    public function testHumanReplacesOnlyThePortraitAndTogglesBackToTheMarine(): void {
         $s = $this->boot();
         string $classic = $this->status($s);
         int $marine = $s->renderer->hud->faceLump($s->player);
         $s->cheats->feed($s, "idelephc");
-        string $elephant = $this->status($s);
-        $this->assertFalse($classic === $elephant);
+        string $human = $this->status($s);
+        $this->assertFalse($classic === $human);
         int $outside = 0;
         for ($i = 0; $i < 64000; $i++) {
             int $x = $i % 320; int $y = intdiv($i, 320);
-            if (($x < 143 || $x >= 175 || $y < 168) && $classic[$i] !== $elephant[$i]) { $outside++; }
+            if (($x < 143 || $x >= 175 || $y < 168) && $classic[$i] !== $human[$i]) { $outside++; }
         }
         $this->assertSameInt(0, $outside);
         $s->cheats->feed($s, "idelephc");
@@ -97,7 +97,7 @@ final class ElephantHudTest extends SessionCase {
         $this->assertSameInt($s->wad->find("STFDEAD0"), $s->renderer->hud->faceLump($s->player));
     }
 
-    public function testSavesRestoreTheElephantExpressionWithoutExtraState(): void {
+    public function testSavesRestoreTheHumanExpressionWithoutExtraState(): void {
         $s = $this->boot();
         $s->cheats->feed($s, "idelephc");
         $s->player->health = 25;
@@ -109,28 +109,52 @@ final class ElephantHudTest extends SessionCase {
         $this->assertSameString($hurt, $this->portrait($s));
     }
 
-    public function testRearHeadStaysLowAndHasTwoWideEars(): void {
+    public function testHandHoldsACarrotLowInTheViewAndReleasesItWhenThrowing(): void {
         $s = $this->boot();
         $s->cheats->feed($s, "idelephc");
         $screen = $s->renderer->screen;
         $screen->fill(254);
         $s->renderer->weapons->draw($screen, $s->player, $s->trig, 0);
         int $left = 320; int $right = 0; int $top = 200; int $bottom = 0;
+        int $leaves = 0;
         for ($i = 0; $i < 64000; $i++) {
             if ($screen->pixels[$i] === 254) { continue; }
             int $x = $i % 320; int $y = intdiv($i, 320);
             $left = min($left, $x); $right = max($right, $x);
             $top = min($top, $y); $bottom = max($bottom, $y);
+            if ($y < 110) { $leaves++; }
         }
-        $this->assertTrue($top >= 115);
-        $this->assertTrue($right - $left > $bottom - $top);
-        $this->assertTrue($right - $left >= 80);
-        // The ears flank a centered head, with an open gap above each shoulder.
-        $this->assertTrue($left < 130 && $right > 190);
-        $this->assertTrue($screen->pixels[140 * 320 + 132] !== 254);
-        $this->assertTrue($screen->pixels[140 * 320 + 188] !== 254);
-        $this->assertTrue($screen->pixels[118 * 320 + 132] === 254);
-        $this->assertTrue($screen->pixels[118 * 320 + 188] === 254);
+        $this->assertTrue($top >= 94 && $top < 110);
+        $this->assertTrue($left >= 140 && $right < 221);
+        $this->assertTrue($bottom >= 168);
+        $this->assertTrue($leaves > 0);
+        // The right wrist enters from below; the leafy carrot clears the grip.
+        $this->assertTrue($screen->pixels[160 * 320 + 207] !== 254);
+        $this->assertTrue($screen->pixels[125 * 320 + 164] !== 254);
+        $s->player->weaponCooldown = 14;
+        $s->player->weaponAge = 0;
+        $screen->fill(254);
+        $s->renderer->weapons->draw($screen, $s->player, $s->trig, 0);
+        int $aboveHand = 0;
+        for ($i = 0; $i < 320 * 110; $i++) {
+            if ($screen->pixels[$i] !== 254) { $aboveHand++; }
+        }
+        $this->assertSameInt(0, $aboveHand);
+        $s->player->weaponAge = 6;
+        $screen->fill(254);
+        $s->renderer->weapons->draw($screen, $s->player, $s->trig, 0);
+        $this->assertTrue($screen->pixels[110 * 320 + 171] !== 254);
+    }
+
+    public function testHumanPortraitHasAnUnmarkedCapAndSkinTones(): void {
+        $s = $this->boot();
+        $s->cheats->feed($s, "idelephc");
+        $this->status($s);
+        $art = new \Showcases\Doom\Graphics\ElephantArt();
+        int $cap = $art->nearest($s->palette, 0x8EADC0);
+        int $skin = $art->nearest($s->palette, 0xF2BE91);
+        $this->assertSameInt($cap, $s->renderer->screen->pixels[173 * 320 + 159]);
+        $this->assertSameInt($skin, $s->renderer->screen->pixels[182 * 320 + 159]);
     }
 
     protected function status(Session $s): string {

@@ -27,7 +27,7 @@ final class ElephantCheatTest extends CombatCase {
         $this->assertSameString("", $s->cheats->tail);
     }
 
-    public function testElephantTravelsBeforeDamagingItsTarget(): void {
+    public function testFoodTravelsBeforeFeedingItsTarget(): void {
         $s = $this->boot();
         $this->isolate($s, 3);
         $s->things->mobjs[3]->x = 192;
@@ -51,7 +51,7 @@ final class ElephantCheatTest extends CombatCase {
         $this->assertSameInt(0, $s->things->mobjs[0]->active);
     }
 
-    public function testClosedDoorsStopElephantsAndProtectMonstersBehindThem(): void {
+    public function testClosedDoorsStopFoodAndProtectMonstersBehindThem(): void {
         $s = $this->boot();
         $this->isolate($s, 4);
         $s->things->mobjs[4]->x = 384;
@@ -66,7 +66,7 @@ final class ElephantCheatTest extends CombatCase {
         $this->assertTrue($s->things->mobjs[0]->x <= 256);
     }
 
-    public function testDisablingTheCheatRestoresHitscanWithoutRemovingFlyingElephants(): void {
+    public function testDisablingTheCheatRestoresHitscanWithoutRemovingFlyingFood(): void {
         $s = $this->boot();
         $this->isolate($s, 3);
         $s->things->mobjs[3]->x = 192;
@@ -84,7 +84,7 @@ final class ElephantCheatTest extends CombatCase {
         $this->assertSameInt(6, $s->things->mobjs[0]->state);
     }
 
-    public function testElephantHeadAnimatesAndOtherWeaponsKeepTheirArt(): void {
+    public function testCarrotHandAnimatesAndOtherWeaponsKeepTheirArt(): void {
         $s = $this->boot();
         string $pistol = $this->weaponFrame($s);
         $s->cheats->feed($s, "idelephc");
@@ -114,7 +114,7 @@ final class ElephantCheatTest extends CombatCase {
         $this->assertSameInt(0, $s->player->bullets);
     }
 
-    public function testElephantSpritesAreVisibleAndClippedByWalls(): void {
+    public function testFoodSpritesAreVisibleAndClippedByWalls(): void {
         $s = $this->boot();
         $this->isolate($s, -1);
         $s->renderer->render($s->map, $s->things, $s->player, 0, "");

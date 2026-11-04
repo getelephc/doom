@@ -56,7 +56,7 @@ final class Weapons {
             $p->bullets--;
             $p->weaponCooldown = 14;
             $this->launch($p, $c, 6009);
-            $c->sounds->play(Sounds::PISTOL);
+            $c->sounds->play(Sounds::PUNCH);
         } else if ($w === 2 || $w === 4) {
             $p->bullets--;
             $p->weaponCooldown = $w === 2 ? 14 : 4;

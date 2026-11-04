@@ -172,17 +172,32 @@ Type cheat codes during play, without a console, then release movement keys as n
 | `IDCLEVxy` | Warp to episode x, mission y, if present in the WAD |
 | `IDMUSxy` | Select an available episode/mission music track |
 | `IDMYPOS` | Toggle position display |
-| `IDELEPHC` | Toggle elephant mode in pistol slot 2; fires red/orange elephant projectiles |
+| `IDELEPHC` | Toggle feeding mode: elephant enemies, flying carrots in slot 2, and sleepy full bellies |
 
-`IDELEPHC` selects the pistol slot and shows an elephant's head from behind,
-low in the view, with ears that flap when firing. The status-bar portrait becomes
-an elephant that glances around and reacts to health, damage, firing, pickups,
-invulnerability and death. The
-elephants travel through the level, hit monsters and stop at walls, using the
-pistol's bullets and firing cadence. Type the code again to restore the pistol
-and the marine portrait.
-Other weapons keep their behavior. The mode survives map changes and saves;
-starting a new game or restarting after death resets it. Its pixel art is built
+`IDELEPHC` turns every monster family into a red/orange elephant and selects
+slot 2 to toss carrots. Food travels through the level and stops at walls, using
+the pistol's bullets and firing cadence. Elephants chase you and cause damage
+only at body contact, with no bullets or fireballs. Escaping before a contact
+attack lands avoids the hit; walls and vertical gaps also block it.
+Activating the mode retires hostile shots already in flight.
+Occasionally, an elephant raises its trunk and pauses before charging in a
+straight line. Sidestep during the warning to dodge it, or feed it to interrupt
+the charge. Charges stop at walls, solid objects or the first contact hit, then
+the elephant needs a short recovery before attacking again.
+Elephants chew when fed, then flop onto
+their side with an animated `zZzZ` when full. Flying elephants settle onto the
+floor for their nap. Sleeping elephants stop attacking and blocking movement;
+they still count toward level completion and unlock the original boss exits.
+Nightmare's respawn rules still apply, waking elephants for another meal.
+
+You play as a human feeder wearing a plain cap. A hand holds a leafy carrot low
+in the view, opens to toss it, and returns with the next carrot. The status-bar
+portrait has short brown hair and a beard, glances around, and reacts to health,
+damage, throwing food, pickups, invulnerability and death. Type the code again
+to restore the original monsters, pistol and marine portrait.
+Other weapons keep their behavior. The mode survives map changes, and saves
+preserve the mode, food in flight and sleeping actors. Starting a new game or
+restarting after death resets the mode. Its pixel art is built
 into the executable and uses the loaded WAD's palette, with no extra asset files.
 
 Saves live in `saves/slot0.json` through `slot5.json`, relative to the launch directory.
@@ -254,6 +269,7 @@ src/
     CombatTrace.php      Wall openings, sight and hitscan targeting
     Weapons.php          Weapon selection, ammo and firing cadence
     MonsterAI.php        Sight, chase, attacks, pain, death and respawning
+    ElephantCharge.php   Occasional feeding-mode charges, warning, collision and recovery
     MonsterRules.php     Monster stats, animation frames and sound profiles
     Projectiles.php      Swept projectiles, splash damage and BFG spray
   Data/                  packed classes: map records, Mobj, Mover, LightEffect, Button
