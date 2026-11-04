@@ -29,13 +29,9 @@
 
 ---
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/getelephc/static/main/assets/doom/0.27.6/doom-readme-fluid.gif" alt="DOOM played by the PHP engine compiled with elephc" width="512">
-</p>
+https://github.com/user-attachments/assets/ddc1e089-2c38-422c-b3e3-6a8d6b7623da
 
-<p align="center">
-  <a href="https://raw.githubusercontent.com/getelephc/static/main/assets/doom/0.27.6/doom-walkthrough.mp4">Download the walkthrough (MP4)</a>
-</p>
+[Download the walkthrough (MP4)](https://raw.githubusercontent.com/getelephc/static/main/assets/doom/v0.1.3/doom-walk.mp4).
 
 The engine is written from the public descriptions of the WAD format and of how DOOM draws and moves (the Unofficial DOOM Specs and the DoomWiki), not translated from DOOM's source code.
 
