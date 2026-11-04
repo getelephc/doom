@@ -11,24 +11,30 @@ final class ElephantArt {
     public array $colors = [];
 
     public function install(Wad $wad, Palette $palette): void {
-        $ramp = [0x391522, 0x80182D, 0xE52C46, 0xFF6928, 0xFFA22A, 0xFFDA69, 0xFFF1CB, 0x20131D];
+        $ramp = [0x391522, 0x80182D, 0xE52C46, 0xFF6928, 0xFFA22A, 0xFFDA69, 0xFFF1CB, 0x20131D, 0x80C840, 0x28752B,
+            0x57362E, 0xA56B50, 0xD89B73, 0xF2BE91, 0xFFE0B5, 0x76513C, 0x392B29, 0x253549, 0x475D77, 0x8EADC0, 0x335961];
         foreach ($ramp as $rgb) { $this->colors[] = $this->nearest($palette, (int)$rgb); }
         $names = []; $pictures = [];
         for ($frame = 0; $frame < 3; $frame++) {
             // Preserve the existing lump names and frame order for saved indices.
             $names[] = "ELTG" . chr(65 + $frame) . "0";
-            int $recoil = $frame === 1 ? 3 : ($frame === 2 ? 1 : 0);
-            $pictures[] = $this->patch($this->rearHead($frame), 88, 64, -116, -110 - $recoil);
+            $pictures[] = $this->patch($this->hand($frame), 88, 80, -132, -94);
         }
         for ($frame = 0; $frame < 5; $frame++) {
             $names[] = "ELPH" . chr(65 + $frame) . "0";
-            $pictures[] = $this->patch($this->elephant($frame), 32, 24, 16, 12);
+            $pictures[] = $this->patch($this->food($frame), 32, 24, 16, 12);
         }
         // Portraits follow the existing projectile frames so save indices stay stable.
-        ElephantFaces $faces = new ElephantFaces();
-        for ($slot = 0; $slot < ElephantFaces::COUNT; $slot++) {
-            $names[] = ElephantFaces::name($slot);
+        FeederFaces $faces = new FeederFaces();
+        for ($slot = 0; $slot < FeederFaces::COUNT; $slot++) {
+            $names[] = FeederFaces::name($slot);
             $pictures[] = $this->patch($faces->picture($slot), 32, 32, 0, 0);
+        }
+        // Append herd frames last, preserving all existing saved definitions.
+        ElephantHerd $herd = new ElephantHerd();
+        for ($frame = 0; $frame < 11; $frame++) {
+            $names[] = "ELEN" . chr(65 + $frame) . "0";
+            $pictures[] = $this->patch($herd->picture($frame), 64, 72, 32, 72);
         }
         $wad->appendLumps($names, $pictures);
     }
@@ -46,51 +52,68 @@ final class ElephantArt {
         return $best;
     }
 
-    public function rearHead(int $frame): array {
+    public function hand(int $frame): array {
         $rows = [];
-        for ($y = 0; $y < 64; $y++) {
+        for ($y = 0; $y < 80; $y++) {
             string $row = "";
             for ($x = 0; $x < 88; $x++) {
-                string $ink = ".";
-                // Broad, scalloped ears frame the back of the head. On firing,
-                // they spread slightly while the entire head recoils downward.
-                int $flap = $frame === 1 ? 2 : ($frame === 2 ? 1 : 0);
-                int $side = $x < 44 ? $x : 87 - $x;
-                int $ex = $side - 19 + $flap;
-                int $ey = $y - 31;
-                int $ear = $ex * $ex * 484 + $ey * $ey * 289;
-                bool $notch = $side < 10 && $y > 42;
-                if ($ear <= 139876 && !$notch) {
-                    $ink = "0";
-                    if ($ear < 118000) {
-                        $ink = $ey < -8 ? "3" : "2";
-                        if ($side > 25) { $ink = "1"; }
-                        if ($ey < -15 && $side > 12 && $side < 24) { $ink = "4"; }
-                        int $fold = 35 + intdiv(abs($ex), 2);
-                        if ($y === $fold && $side < 26) { $ink = "1"; }
-                    }
-                }
-                // A rounded crown and nape are all that the rear view exposes.
-                int $hx = $x - 44; int $hy = $y - 42;
-                int $head = $hx * $hx * 676 + $hy * $hy * 625;
-                if ($head <= 422500) {
-                    $ink = "0";
-                    if ($head < 377000) {
-                        $ink = $hx < -12 || $hy > 12 ? "2" : "3";
-                        int $shineX = $hx - 7; int $shineY = $hy + 10;
-                        int $shine = $shineX * $shineX * 196 + $shineY * $shineY * 144;
-                        if ($shine < 28224) { $ink = "4"; }
-                        if ($shine < 3500 && $shineY < 0) { $ink = "5"; }
-                    }
-                }
-                $row .= $ink;
+                $row .= $this->handPixel($x, $y, $frame);
             }
             $rows[] = $row;
         }
         return $rows;
     }
 
-    public function elephant(int $frame): array {
+    public function handPixel(int $x, int $y, int $frame): string {
+        int $px = $x; int $py = $y;
+        if ($frame === 1) { $px = $x + 10; $py = $y + 9; }
+        else if ($frame === 2) { $px = $x - 8; $py = $y - 6; }
+        string $ink = ".";
+        // The right forearm runs into the lower edge of the view.
+        int $axis = 56 + intdiv(($px - 47) * 3, 5);
+        if ($px >= 43 && $px < 103 && abs($py - $axis) < 11) {
+            $ink = $py < $axis - 5 ? "=" : ($py > $axis + 6 ? ";" : "<");
+            if ($px > 69) { $ink = $py < $axis - 4 ? "B" : "A"; }
+            if ($px === 69 || $px === 70) { $ink = "D"; }
+        }
+        int $hx = $px - 43; int $hy = $py - 52;
+        int $palm = $hx * $hx * 100 + $hy * $hy * 169;
+        if ($palm < 16900) { $ink = $palm > 13500 ? ";" : ($py < 51 ? "=" : "<"); }
+        // A leafy carrot sits behind the curled fingers in ready/recovery poses.
+        if ($frame !== 1) {
+            int $cx = 31 + intdiv(max(0, $py - 16), 9);
+            int $half = max(1, 7 - intdiv(max(0, $py - 16), 6));
+            if ($py >= 16 && $py <= 55 && abs($px - $cx) <= $half) {
+                $ink = $px < $cx ? "3" : "4";
+                if ($px === $cx + 3 && $py < 37) { $ink = "5"; }
+                if ($py % 7 === 0 && $px < $cx + 2) { $ink = "2"; }
+            }
+            if ($py >= 3 && $py <= 17 && (abs($px - 31) <= 1 || abs($px - 31) === intdiv(17 - $py, 2))) {
+                $ink = $px < 31 ? "9" : "8";
+            }
+            // Four curled fingers overlap the carrot, with shaded separations.
+            if ($px >= 24 && $px <= 42 && $py >= 44 && $py <= 60) {
+                int $finger = intdiv($py - 44, 4);
+                int $edge = 24 + $finger;
+                if ($px >= $edge) { $ink = ($py - 44) % 4 === 3 ? ";" : ($px < 28 ? "<" : "="); }
+            }
+            int $tx = $px - 43; int $ty = $py - 42;
+            if ($tx * $tx * 49 + $ty * $ty * 25 < 1225) { $ink = $py < 41 ? ">" : "="; }
+        } else {
+            // Open fingers follow through after the carrot leaves the hand.
+            for ($finger = 0; $finger < 4; $finger++) {
+                int $fy = 39 + $finger * 5;
+                int $tip = 19 + abs($finger - 1) * 3;
+                if ($px >= $tip && $px <= 42 && $py >= $fy && $py <= $fy + 3) {
+                    $ink = $py === $fy + 3 ? ";" : "=";
+                }
+            }
+            if ($px >= 43 && $px <= 48 && $py >= 29 && $py <= 47) { $ink = $px < 45 ? "<" : "="; }
+        }
+        return $ink;
+    }
+
+    public function food(int $frame): array {
         $rows = [];
         for ($y = 0; $y < 24; $y++) {
             string $row = "";
@@ -98,31 +121,21 @@ final class ElephantArt {
                 string $ink = ".";
                 if ($frame >= 2) {
                     int $dx = abs($x - 16); int $dy = abs($y - 12);
-                    int $radius = 4 + ($frame - 2) * 3;
-                    int $distance = $dx + $dy;
-                    if ($distance < $radius && $distance >= max(0, $radius - 5)) {
-                        $ink = $distance < $radius - 2 ? "5" : "3";
-                    }
-                    if ($dx === $dy && $dx >= $radius - 2 && $dx <= $radius) { $ink = "2"; }
+                    int $spread = 3 + ($frame - 2) * 4;
+                    if (($dx === $spread || $dx === $spread - 1) && $dy < 3) { $ink = "4"; }
+                    if (($dy === $spread || $dy === $spread - 1) && $dx < 3) { $ink = "8"; }
                 } else {
-                    // Tail and alternating feet, then body, head and large ear.
-                    if ($x >= 2 && $x <= 4 && $y >= 9 && $y <= 15) { $ink = "1"; }
-                    int $step = $frame * 2;
-                    if (($x >= 7 && $x <= 11 && $y >= 15 && $y <= 22 - $step)
-                        || ($x >= 16 && $x <= 20 && $y >= 15 && $y <= 20 + $step)) { $ink = "2"; }
-                    int $bx = $x - 13; int $by = $y - 12;
-                    int $body = $bx * $bx * 49 + $by * $by * 100;
-                    if ($body <= 4900) { $ink = $body > 3650 ? "0" : ($y < 10 ? "4" : "3"); }
-                    int $hx = $x - 24; int $hy = $y - 10;
-                    int $head = $hx * $hx + $hy * $hy;
-                    if ($head <= 36) { $ink = $head > 26 ? "0" : ($y < 8 ? "5" : "3"); }
-                    int $ex = $x - 20; int $ey = $y - 11 - $frame;
-                    int $ear = $ex * $ex * 36 + $ey * $ey * 16;
-                    if ($ear <= 576) { $ink = $ear > 360 ? "1" : ($x < 20 ? "2" : "3"); }
-                    if ($x >= 27 && $x <= 30 && $y >= 11 && $y <= 20) { $ink = $x === 27 || $x === 30 ? "1" : "4"; }
-                    if ($x >= 25 && $x <= 29 && $y >= 19 && $y <= 21) { $ink = $y === 21 ? "1" : "4"; }
-                    if ($x >= 25 && $x <= 28 && $y === 14) { $ink = "6"; }
-                    if ($x === 25 && $y === 8) { $ink = "7"; }
+                    // A carrot with a leafy crown, bobbing in flight.
+                    int $cy = $y - $frame;
+                    int $width = intdiv(22 - $cy, 3);
+                    if ($cy >= 7 && $cy <= 21 && abs($x - 16) <= $width) {
+                        $ink = $x < 16 ? "3" : "4";
+                        if ($cy % 4 === 0 && $x < 17) { $ink = "2"; }
+                        if ($x === 18 && $cy < 14) { $ink = "5"; }
+                    }
+                    if ($cy >= 1 && $cy <= 7 && (abs($x - 16) <= 1 || abs($x - 16) === 7 - $cy)) {
+                        $ink = $x < 16 ? "9" : "8";
+                    }
                 }
                 $row .= $ink;
             }

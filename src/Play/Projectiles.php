@@ -63,6 +63,12 @@ final class Projectiles {
         $m[$i]->stateAge++;
         int $age = $m[$i]->stateAge;
         int $type = $m[$i]->type;
+        // Retire hostile shots from before a toggle or a loaded save before they
+        // can hit or apply splash damage. Player food and barrel blasts remain.
+        if ($c->player->elephantMode && $m[$i]->target >= 0 && $type >= 6000 && $type <= 6008) {
+            $m[$i]->active = 0;
+            return;
+        }
         if ($m[$i]->state === 7) {
             int $frames = 3;
             int $first = 2;
@@ -136,7 +142,8 @@ final class Projectiles {
             if ($type === 6003) { $m[$i]->kind = $c->things->types->find(6007); }
             else if ($type === 6004) { $m[$i]->kind = $c->things->types->find(6008); }
             $c->frame($i, $type === 6002 ? 1 : ($type === 6003 || $type === 6004 ? 0 : 2), 1);
-            $c->soundAt($type === 6002 ? Sounds::BARREL : Sounds::EXPLODE, $x, $y);
+            int $sound = $type === 6002 ? Sounds::BARREL : ($type === 6009 ? Sounds::PICKUP : Sounds::EXPLODE);
+            $c->soundAt($sound, $x, $y);
             return;
         }
         $m[$i]->fixedX = $newX; $m[$i]->fixedY = $newY; $m[$i]->fixedZ = $newZ;

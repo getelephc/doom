@@ -22,7 +22,7 @@ packed class Mobj {
     public int $height;
     public int $solid;
     // Combat state: 0 idle, 1 chase, 2 attack windup, 3 pain, 4 dying, 5 corpse,
-    // 6 flying projectile, 7 exploding. Noncombat decorations keep health at 0.
+    // 6 flying projectile, 7 exploding, 8 charging. Noncombat decorations keep health at 0.
     public int $health;
     public int $state;
     public int $stateTics;
@@ -36,7 +36,7 @@ packed class Mobj {
     public int $fixedX;
     public int $fixedY;
     public int $fixedZ;
-    public int $hitDamage;
+    public int $hitDamage; // Projectile damage, or the active elephant charge marker/damage.
     public int $splashDamage;
     public int $spawnX;
     public int $spawnY;

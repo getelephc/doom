@@ -5,7 +5,7 @@
   menus, cheats, saves and music, including validation and compatibility limits.
 - [macOS runtime](macos-runtime.md): relocatable SDL libraries and clean-machine archive checks.
 - [Release automation](release-automation.md): Make targets, native CI and version-tag releases.
-- [Elephant cheat](elephant-cheat.md): embedded trunk art and elephant projectiles.
+- [Elephant cheat](elephant-cheat.md): embedded elephant art, food projectiles and sleeping enemies.
 
 The completed gameplay specifications moved from Elephc when DOOM became an independent
 project. Historical compiler and Code Journal references belong to Elephc.

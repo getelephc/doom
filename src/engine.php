@@ -26,7 +26,8 @@ require_once 'Audio/Sounds.php';
 
 require_once 'Graphics/Animations.php';
 require_once 'Graphics/Palette.php';
-require_once 'Graphics/ElephantFaces.php';
+require_once 'Graphics/FeederFaces.php';
+require_once 'Graphics/ElephantHerd.php';
 require_once 'Graphics/ElephantArt.php';
 require_once 'Graphics/Textures.php';
 require_once 'Graphics/Flats.php';
@@ -52,6 +53,7 @@ require_once 'Play/Player.php';
 require_once 'Play/Cheats.php';
 require_once 'Play/CombatTrace.php';
 require_once 'Play/MonsterRules.php';
+require_once 'Play/ElephantCharge.php';
 require_once 'Play/MonsterAI.php';
 require_once 'Play/Projectiles.php';
 require_once 'Play/Combat.php';

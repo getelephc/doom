@@ -11,6 +11,11 @@ final class MonsterAI {
         $mobjs = $combat->things->mobjs;
         int $type = $mobjs[$i]->type;
         int $state = $mobjs[$i]->state;
+        // A full flying elephant settles onto the floor for its nap.
+        if ($combat->player->elephantMode && ($state === 4 || $state === 5) && $combat->rules->flying($type)) {
+            int $floor = $combat->collision->map->sectors[$mobjs[$i]->sector]->floor_height;
+            $mobjs[$i]->z = max($floor, $mobjs[$i]->z - 4);
+        }
         if ($state === 5) {
             $mobjs[$i]->stateAge++;
             if ($combat->skill === 5 && $type !== 3006 && $mobjs[$i]->stateAge > 420 && ($mobjs[$i]->stateAge & 31) === 0 && $combat->random() < 8) {
@@ -27,7 +32,13 @@ final class MonsterAI {
             }
             return;
         }
-        if ($state === 8) { $this->charge($combat, $i); return; }
+        if ($state === 8) {
+            if ($mobjs[$i]->hitDamage === ElephantCharge::DAMAGE) { $combat->elephants->tick($combat, $i); return; }
+            if (!$combat->player->elephantMode) { $this->charge($combat, $i); return; }
+            $mobjs[$i]->state = 1; $mobjs[$i]->stateTics = 0;
+            $mobjs[$i]->velX = 0; $mobjs[$i]->velY = 0; $mobjs[$i]->velZ = 0;
+            $state = 1;
+        }
         $mobjs[$i]->stateAge++;
         if ($state === 4) {
             int $first = $combat->rules->deathFirst($type);
@@ -79,11 +90,20 @@ final class MonsterAI {
         }
         int $angle = $this->angle($dx, $dy);
         $mobjs[$i]->angle = $angle;
+        bool $touching = false;
+        if ($combat->player->elephantMode) {
+            $touching = $this->touchingTarget($combat, $i);
+            // Abandon a ranged windup or a contact attack the target escaped.
+            if ($state === 2 && !$touching) {
+                $mobjs[$i]->state = 1; $mobjs[$i]->stateTics = 0;
+                $state = 1;
+            }
+        }
         if ($state === 2) {
             $mobjs[$i]->stateTics--;
             if ($mobjs[$i]->stateTics === 6) {
                 $combat->frame($i, $combat->rules->attackFrame($type) + 1);
-                if ($type === 16 && $visible) { $this->attack($combat, $i, $tx, $ty, $tz, $distance); }
+                if ($type === 16 && $visible && !$combat->player->elephantMode) { $this->attack($combat, $i, $tx, $ty, $tz, $distance); }
             }
             if ($mobjs[$i]->stateTics <= 0) {
                 if ($visible) {
@@ -91,6 +111,7 @@ final class MonsterAI {
                 }
                 if ($mobjs[$i]->state !== 8) { $mobjs[$i]->state = 1; }
                 $mobjs[$i]->cooldown = $type === 7 ? 4 : 15 + $combat->random() % 25;
+                if ($combat->player->elephantMode) { $mobjs[$i]->cooldown = 20; }
                 if ($combat->skill === 5) { $mobjs[$i]->cooldown = 4; }
             }
             return;
@@ -98,13 +119,16 @@ final class MonsterAI {
         if ($mobjs[$i]->cooldown > 0) {
             $mobjs[$i]->cooldown--;
         }
-        if ($visible && $distance < 2000 && $mobjs[$i]->cooldown <= 0 && (!$combat->rules->meleeOnly($type) || $distance < 64)) {
+        bool $inRange = $distance < 2000 && (!$combat->rules->meleeOnly($type) || $distance < 64);
+        if ($combat->player->elephantMode) { $inRange = $touching; }
+        if ($visible && $inRange && $mobjs[$i]->cooldown <= 0) {
             $mobjs[$i]->state = 2;
             $mobjs[$i]->stateTics = $combat->skill === 5 ? 6 : 12;
             $combat->frame($i, $combat->rules->attackFrame($type));
-            if ($type === 16) { $this->attack($combat, $i, $tx, $ty, $tz, $distance); }
+            if ($type === 16 && !$combat->player->elephantMode) { $this->attack($combat, $i, $tx, $ty, $tz, $distance); }
             return;
         }
+        if ($combat->elephants->tryStart($combat, $i, $dx, $dy, $visible)) { return; }
         int $walk = intdiv($mobjs[$i]->stateAge, 4) % 4;
         if ($type === 3005 || $type === 3006) { $walk %= 2; }
         $combat->frame($i, $walk);
@@ -130,6 +154,13 @@ final class MonsterAI {
     public function attack(Combat $combat, int $i, int $tx, int $ty, int $tz, int $distance): void {
         $mobjs = $combat->things->mobjs;
         int $type = $mobjs[$i]->type;
+        if ($combat->player->elephantMode) {
+            if ($this->touchingTarget($combat, $i)) {
+                $this->damageTarget($combat, $i, ($combat->random() % 3 + 1) * 4);
+            }
+            $combat->frame($i, $combat->rules->attackFrame($type));
+            return;
+        }
         if ($combat->player->invisible > 0 && $mobjs[$i]->target < 0) {
             $tx += ($combat->random() - $combat->random()) * 2;
             $ty += ($combat->random() - $combat->random()) * 2;
@@ -210,9 +241,32 @@ final class MonsterAI {
         }
     }
 
+    public function touchingTarget(Combat $combat, int $i): bool {
+        $m = $combat->things->mobjs;
+        int $target = $m[$i]->target;
+        int $tx = $combat->player->unitX(); int $ty = $combat->player->unitY();
+        int $tz = $combat->player->unitZ(); int $height = 56; int $radius = 16;
+        if ($target >= 0) {
+            if ($target >= $combat->things->count || $m[$target]->active === 0 || $m[$target]->health <= 0) { return false; }
+            $tx = $m[$target]->x; $ty = $m[$target]->y; $tz = $m[$target]->z;
+            $height = $m[$target]->height; $radius = $m[$target]->radius;
+        } else if ($combat->player->health <= 0) { return false; }
+        int $reach = $m[$i]->radius + $radius + 2;
+        if (abs($tx - $m[$i]->x) > $reach || abs($ty - $m[$i]->y) > $reach
+            || $m[$i]->z >= $tz + $height || $m[$i]->z + $m[$i]->height <= $tz) { return false; }
+        return $combat->trace->visible($m[$i]->x, $m[$i]->y, $m[$i]->z + ($m[$i]->height >> 1), $tx, $ty, $tz + ($height >> 1));
+    }
+
     public function move(Combat $combat, int $i, int $dx, int $dy): void {
         int $direction = ($this->angle($dx, $dy) + 512) >> 10;
         int $speed = $combat->rules->speed($combat->things->mobjs[$i]->type);
+        if ($combat->player->elephantMode) {
+            int $target = $combat->things->mobjs[$i]->target;
+            int $radius = $target < 0 ? 16 : $combat->things->mobjs[$target]->radius;
+            int $reach = $combat->things->mobjs[$i]->radius + $radius;
+            // Shorten the last step so fast, large actors can reach body contact.
+            $speed = min($speed, max(1, max(abs($dx), abs($dy)) - $reach));
+        }
         for ($attempt = 0; $attempt < 8; $attempt++) {
             int $offset = intdiv($attempt + 1, 2);
             if ($attempt % 2 === 0) {

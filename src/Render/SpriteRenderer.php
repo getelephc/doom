@@ -5,6 +5,8 @@ namespace Showcases\Doom\Render;
 use Showcases\Doom\Data\Mobj;
 use Showcases\Doom\Data\Seg;
 use Showcases\Doom\Graphics\Sprites;
+use Showcases\Doom\Play\ElephantCharge;
+use Showcases\Doom\Play\MonsterRules;
 use Showcases\Doom\Play\Things;
 use Showcases\Doom\Wad\Wad;
 
@@ -25,6 +27,9 @@ final class SpriteRenderer {
     public buffer<int> $visibleSide;
     public buffer<int> $columnTop;
     public buffer<int> $columnBottom;
+    public buffer<int> $elephantFrames;
+    public MonsterRules $monsterRules;
+    public bool $elephantMode = false;
 
     public function __construct(BspRenderer $world, Sprites $sprites, Wad $wad) {
         $this->world = $world;
@@ -37,9 +42,16 @@ final class SpriteRenderer {
         $this->visibleSide = buffer_new<int>(1);
         $this->columnTop = buffer_new<int>($world->width);
         $this->columnBottom = buffer_new<int>($world->width);
+        $this->monsterRules = new MonsterRules();
+        $this->elephantFrames = buffer_new<int>(11);
+        int $key = $wad->key("ELEN");
+        for ($f = 0; $f < 11; $f++) {
+            $this->elephantFrames[$f] = $sprites->find($key, $f);
+        }
     }
 
-    public function render(Things $things, int $tic): void {
+    public function render(Things $things, int $tic, bool $elephantMode = false): void {
+        $this->elephantMode = $elephantMode;
         if ($things->count <= 0) {
             return;
         }
@@ -103,9 +115,28 @@ final class SpriteRenderer {
 
         for ($k = 0; $k < $visible; $k++) {
             int $index = $order[$k];
-            int $definition = $things->definitionAt($index, $tic);
+            int $definition = $this->definitionFor($things, $index, $tic);
             $this->drawThing($mobjs, $index, $definition, $depths[$k], $sides[$k]);
         }
+    }
+
+    // Substitute only the displayed frame. Actor types and saved WAD definitions
+    // retain their original values, including when the cheat is toggled mid-fight.
+    public function definitionFor(Things $things, int $index, int $tic): int {
+        int $type = $things->mobjs[$index]->type;
+        if (!$this->elephantMode || $type === 2035 || $this->monsterRules->health($type) <= 0) {
+            return $things->definitionAt($index, $tic);
+        }
+        int $state = $things->mobjs[$index]->state;
+        int $age = $things->mobjs[$index]->stateAge;
+        int $frame = intdiv($age, 5) % 4;
+        if ($state === 0) { $frame = intdiv($tic + $index * 7, 10) % 2; }
+        else if ($state === 2 || $state === 3 || $state === 8) { $frame = 4; }
+        else if ($state === 4) { $frame = min(7, 5 + intdiv($age, 5)); }
+        else if ($state === 5) { $frame = 7 + intdiv($tic, 16) % 2; }
+        if ($state === 8 && $things->mobjs[$index]->hitDamage === ElephantCharge::DAMAGE) { $frame = 9 + intdiv($age, 3) % 2; }
+        int $definition = $this->elephantFrames[$frame];
+        return $definition >= 0 ? $definition : $things->definitionAt($index, $tic);
     }
 
     public function drawThing(buffer<Mobj> $mobjs, int $index, int $definition, int $depth, int $side): void {
@@ -185,7 +216,7 @@ final class SpriteRenderer {
         }
 
         if ($world->fixedColormap >= 0) { $colormap = $world->fixedColormap; }
-        bool $shadow = $mobjs[$index]->type === 58;
+        bool $shadow = $mobjs[$index]->type === 58 && !$this->elephantMode;
         int $spriteTop = $mobjs[$index]->z + $topOffset;
         int $topHeight = $spriteTop - $world->viewZ;
         int $textureMid = $topHeight << 16;

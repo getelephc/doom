@@ -2,7 +2,7 @@
 
 namespace Showcases\Doom\Render;
 
-use Showcases\Doom\Graphics\ElephantFaces;
+use Showcases\Doom\Graphics\FeederFaces;
 use Showcases\Doom\Play\Player;
 use Showcases\Doom\Wad\Wad;
 
@@ -10,7 +10,7 @@ use Showcases\Doom\Wad\Wad;
 // the big red STTNUM digits for ammo, health and armor, the STARMS weapon panel,
 // the marine's face (STFST, by pain level and glance direction), key cards, ammo
 // tallies in small STYSNUM digits, and STCFN font text for messages and the FPS.
-// IDELEPHC selects built-in elephant portraits with state-driven expressions.
+// IDELEPHC selects built-in human portraits with state-driven expressions.
 final class Hud {
     public Wad $wad;
     public Screen $screen;
@@ -24,7 +24,7 @@ final class Hud {
     public buffer<int> $grayDigit;
     public buffer<int> $keyCard;
     public buffer<int> $face;
-    public buffer<int> $elephantFace;
+    public buffer<int> $feederFace;
     public buffer<int> $font;
     public int $bigDigitWidth;
     public int $faceLook;
@@ -52,9 +52,9 @@ final class Hud {
             $this->keyCard[$k] = $wad->find("STKEYS" . $k);
         }
         $this->face = buffer_new<int>(15);
-        $this->elephantFace = buffer_new<int>(ElephantFaces::COUNT);
-        for ($f = 0; $f < ElephantFaces::COUNT; $f++) {
-            $this->elephantFace[$f] = $wad->find(ElephantFaces::name($f));
+        $this->feederFace = buffer_new<int>(FeederFaces::COUNT);
+        for ($f = 0; $f < FeederFaces::COUNT; $f++) {
+            $this->feederFace[$f] = $wad->find(FeederFaces::name($f));
         }
         for ($pain = 0; $pain < 5; $pain++) {
             for ($look = 0; $look < 3; $look++) {
@@ -165,7 +165,7 @@ final class Hud {
     }
 
     public function faceLump(Player $player): int {
-        if ($player->elephantMode) { return $this->elephantFaceLump($player); }
+        if ($player->elephantMode) { return $this->feederFaceLump($player); }
         if ($player->health <= 0) { return $this->faceDead; }
         if ($player->godMode || $player->invulnerable > 0) { return $this->wad->find("STFGOD0"); }
         int $health = $player->health;
@@ -180,15 +180,15 @@ final class Hud {
         return $this->face[$slot];
     }
 
-    public function elephantFaceLump(Player $player): int {
-        if ($player->health <= 0) { return $this->elephantFace[ElephantFaces::DEAD]; }
-        if ($player->godMode || $player->invulnerable > 0) { return $this->elephantFace[ElephantFaces::GOD]; }
+    public function feederFaceLump(Player $player): int {
+        if ($player->health <= 0) { return $this->feederFace[FeederFaces::DEAD]; }
+        if ($player->godMode || $player->invulnerable > 0) { return $this->feederFace[FeederFaces::GOD]; }
         int $pain = intdiv((100 - min(100, $player->health)) * 5, 101);
         int $slot = $pain * 3 + $this->faceLook;
-        if ($player->damageCount > 0) { $slot = ElephantFaces::HURT + $pain; }
-        else if ($player->bonusCount > 0) { $slot = ElephantFaces::GRIN + $pain; }
-        else if ($player->fireHeld && $player->weaponCooldown > 0) { $slot = ElephantFaces::FIRE + $pain; }
-        return $this->elephantFace[$slot];
+        if ($player->damageCount > 0) { $slot = FeederFaces::HURT + $pain; }
+        else if ($player->bonusCount > 0) { $slot = FeederFaces::GRIN + $pain; }
+        else if ($player->fireHeld && $player->weaponCooldown > 0) { $slot = FeederFaces::FIRE + $pain; }
+        return $this->feederFace[$slot];
     }
 
     // Right-aligned at $right, like DOOM's number widgets.

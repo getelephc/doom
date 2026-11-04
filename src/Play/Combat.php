@@ -18,6 +18,7 @@ final class Combat {
     public Trig $trig;
     public Sounds $sounds;
     public MonsterAI $monsters;
+    public ElephantCharge $elephants;
     public Projectiles $projectiles;
     public MonsterRules $rules;
     public int $skill = 3;
@@ -45,6 +46,7 @@ final class Combat {
         $this->trig = $trig;
         $this->sounds = $sounds;
         $this->monsters = new MonsterAI();
+        $this->elephants = new ElephantCharge();
         $this->projectiles = new Projectiles();
         $this->rules = new MonsterRules();
         $this->seed = 1;
@@ -218,6 +220,9 @@ final class Combat {
         if ($index < 0 || $index >= $this->things->count || $mobjs[$index]->health <= 0) {
             return;
         }
+        if ($mobjs[$index]->state === 8 && $mobjs[$index]->hitDamage === ElephantCharge::DAMAGE) {
+            $this->elephants->stop($this, $index);
+        }
         int $remaining = $mobjs[$index]->health - $damage;
         $mobjs[$index]->health = $remaining;
         if ($remaining <= 0) {
@@ -238,7 +243,7 @@ final class Combat {
                 int $firstDeath = $this->rules->deathFirst($mobjs[$index]->type);
                 $this->frame($index, $firstDeath);
                 int $sound = $this->rules->deathSound($mobjs[$index]->type);
-                $this->soundAt($sound, $mobjs[$index]->x, $mobjs[$index]->y);
+                if (!$this->player->elephantMode) { $this->soundAt($sound, $mobjs[$index]->x, $mobjs[$index]->y); }
                 if ($mobjs[$index]->type === 3004) {
                     $this->drop($index, 2007);
                 } else if ($mobjs[$index]->type === 9) {
@@ -254,7 +259,7 @@ final class Combat {
             int $pain = $this->rules->pain($mobjs[$index]->type);
             $this->frame($index, $pain);
             int $sound = ($mobjs[$index]->type === 3004 || $mobjs[$index]->type === 9) ? Sounds::PAIN : Sounds::MONSTER_PAIN;
-            $this->soundAt($sound, $mobjs[$index]->x, $mobjs[$index]->y);
+            if (!$this->player->elephantMode) { $this->soundAt($sound, $mobjs[$index]->x, $mobjs[$index]->y); }
         }
     }
 
